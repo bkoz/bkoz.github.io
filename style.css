@@ -1,4 +1,9 @@
 h1 {
-    font-style: Verdana;
+    font-family: sans-serif;
+    color: lightseagreen;
+}
+
+h2 {
+    font-family: Georgia;
     color: lightseagreen;
 }
