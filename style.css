@@ -1,6 +1,16 @@
 h1 {
     font-family: sans-serif;
     color: lightseagreen;
+    text-transform: uppercase;
+}
+header {
+    font-family: sans-serif;
+    color: lightskyblue;
+}
+
+footer {
+    font-family: sans-serif;
+    color: grey;
 }
 
 h2 {
