@@ -1,0 +1,75 @@
+#
+# Assignment 1 - Python Project: pillow, tesseract, and opencv
+# Bob Kozdemba, 12/6/2019
+#
+
+import PIL
+from PIL import Image
+from PIL import ImageEnhance
+from PIL import ImageDraw
+from PIL import ImageFont
+
+# Read the image and convert it to RGBA. The 'A' channel is needed so
+# a text image can be blended with the enhanced image.
+image=Image.open('readonly/msi_recruitment.gif')
+image=image.convert('RGBA')
+
+# An empty list to hold the enhanced images.
+images = []
+
+# Get a font for overlaying text on the enhanced image.
+fnt = ImageFont.truetype('readonly/fanwood-webfont.ttf', 75)
+
+# A few constants to make the code more readable.
+R, G, B, A = 0, 1, 2, 3
+
+# For each color channel (Don't scale the Alpha channel)
+for c in range(0, 3):
+    # Reset brightness and split the image into individual channels.
+    brightness = [1, 1, 1, 1]
+    source = image.split()
+    # For each brightness, scale the current channel's brightness and merge
+    # it into a new image.
+    for b in range(1, 10, 4):
+        brightness[c] = b/10
+        newImage = Image.merge('RGBA', (ImageEnhance.Brightness(source[R]).enhance(brightness[R]), 
+                                        ImageEnhance.Brightness(source[G]).enhance(brightness[G]), 
+                                        ImageEnhance.Brightness(source[B]).enhance(brightness[B]),
+                                        ImageEnhance.Brightness(source[A]).enhance(brightness[A])))
+                
+        # Create a blank image for the text, initialized to transparent text color (A=0)
+        txt = Image.new('RGBA', image.size, (255,255,255,0))
+        
+        # get a drawing context for the text
+        d = ImageDraw.Draw(txt)
+        
+        # draw text
+        d.text((10,380), "Channel {} Intensity {}".format(c, brightness[c]), font=fnt, fill=(255, 255, 255, 255))
+        
+        # Blend the text image with the enhanced image.
+        outText = Image.alpha_composite(newImage, txt)
+        
+        # Append the finshed image to the image list.
+        images.append(outText) 
+
+# Create a contact sheet from different brightnesses
+first_image=images[0]
+contact_sheet=PIL.Image.new(first_image.mode, (first_image.width*3,first_image.height*3))
+x=0
+y=0
+
+for img in images:
+    # Lets paste the current image into the contact sheet
+    contact_sheet.paste(img, (x, y) )
+    # Now we update our X position. If it is going to be the width of the image, then we set it to 0
+    # and update Y as well to point to the next "line" of the contact sheet.
+    if x+first_image.width == contact_sheet.width:
+        x=0
+        y=y+first_image.height
+    else:
+        x=x+first_image.width
+
+# resize and display the contact sheet
+contact_sheet = contact_sheet.resize((int(contact_sheet.width/2),int(contact_sheet.height/2) ))
+display(contact_sheet)
+
