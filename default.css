@@ -1,0 +1,67 @@
+
+h1 {
+    font-family: sans-serif;
+    color: #222299
+}
+
+body {
+    height: 100%;
+    margin-right: 75px;
+    margin-left: 75px;
+    margin-top: 50px;
+    margin-bottom: 25px;
+    background-image: linear-gradient(white, #A5C9F4);
+    background-repeat: no-repeat
+}
+
+img {
+    margin: 0 20px 0 0
+}
+
+h1 img {
+    margin-bottom: -50px
+}
+
+article {
+    margin-top: 25px
+}
+
+section {
+  font-family: Arial, Helvetica, sans-serif;
+  font-style: normal
+}
+
+ul {
+  font-size: smaller  
+}
+
+p {
+  font-family: Arial, Helvetica, sans-serif;
+  font-style: normal
+}
+
+h2 {
+    font-family: Verdana, Geneva, sans-serif
+}
+
+h3 {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #555555
+}
+
+h4 {
+  font-family: Arial, Helvetica, sans-serif  
+}
+
+h5 {
+  font-family: Arial, Helvetica, sans-serif  
+}
+footer {
+    color: #4F4F4F;
+    font-size: smaller
+}
+
+#resume-title {
+  color: black;
+  text-align: center
+}
