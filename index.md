@@ -1,7 +1,7 @@
-My developing blog site. Use [Markdown](https://guides.github.com/features/mastering-markdown/).
+My developing blog site. [Markdown reference](https://guides.github.com/features/mastering-markdown/).
 
 ![Image of BK logo](images/bk.gif)
 
-## Title
+## Posts
 
-Posts will appear after this file. 
+Belong here
