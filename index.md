@@ -4,4 +4,4 @@ My developing blog site. [Markdown reference](https://guides.github.com/features
 
 ## Posts
 
-Belong here
+Should appear below
