@@ -2,6 +2,3 @@ My developing blog site. [Markdown reference](https://guides.github.com/features
 
 ![Image of BK logo](images/bk.gif)
 
-## Posts
-
-Should appear below
