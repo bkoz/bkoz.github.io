@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Stream Player</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+            margin-bottom: 10px;
+            background-color: white;
+            cursor: pointer;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.stop {
+            background-color: #f44336;
+        }
+        button.stop:hover {
+            background-color: #da190b;
+        }
+        audio {
+            width: 100%;
+            margin-top: 20px;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.playing {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .volume-control {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .volume-control label {
+            margin-bottom: 0;
+            min-width: 60px;
+        }
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: none;
+        }
+        .volume-value {
+            min-width: 40px;
+            text-align: right;
+            color: #666;
+            font-weight: bold;
+        }
+        .stream-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+        .stream-info.visible {
+            display: block;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .info-label {
+            color: #666;
+            font-weight: bold;
+        }
+        .info-value {
+            color: #333;
+            font-family: monospace;
+        }
+        .metadata-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            color: white;
+            display: none;
+        }
+        .metadata-section.visible {
+            display: block;
+        }
+        .metadata-section h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+            padding-bottom: 10px;
+        }
+        .metadata-row {
+            display: flex;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .metadata-label {
+            min-width: 80px;
+            opacity: 0.8;
+            font-weight: bold;
+        }
+        .metadata-value {
+            flex: 1;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Audio Stream Player</h1>
+
+        <div class="input-group">
+            <label for="streamPreset">Preset Streams:</label>
+            <select id="streamPreset" onchange="selectPreset()">
+                <option value="http://stream.radioparadise.com/flacm">Radio Paradise - Main Mix (FLAC)</option>
+                <option value="http://stream.radioparadise.com/rock-flacm">Radio Paradise - Rock Mix (FLAC)</option>
+                <option value="http://stream.radioparadise.com/beyond-flacm">Radio Paradise - Beyond (FLAC)</option>
+                <option value="https://knkx-live-a.edge.audiocdn.com/6285_48k/playlist.m3u8">KNKX 88.5 FM (HLS/48k)</option>
+                <option value="https://knkx-live-a.edge.audiocdn.com/6285_256k/playlist.m3u8">KNKX 88.5 FM (HLS/256k)</option>
+                <option value="https://hls.somafm.com/hls/groovesalad/64k/program.m3u8">SomaFM - Groove Salad (AAC 64k)</option>
+                <option value="https://hls.somafm.com/hls/groovesalad/FLAC/program.m3u8">SomaFM - Groove Salad (FLAC)</option>
+                <option value="custom">Custom URL...</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="streamUrl">Stream URL:</label>
+            <input type="text" id="streamUrl" value="https://knkx-live-a.edge.audiocdn.com/6285_48k/playlist.m3u8" placeholder="Enter audio stream URL (e.g., https://example.com/stream.mp3)">
+        </div>
+
+        <button onclick="loadStream()">Load & Play</button>
+        <button class="stop" onclick="stopStream()">Stop</button>
+
+        <div id="status" class="status"></div>
+
+        <audio id="audioPlayer" controls>
+            Your browser does not support the audio element.
+        </audio>
+
+        <div class="volume-control">
+            <label for="volumeSlider">Volume:</label>
+            <input type="range" id="volumeSlider" min="0" max="100" value="75">
+            <span class="volume-value" id="volumeValue">75%</span>
+        </div>
+
+        <div id="streamInfo" class="stream-info">
+            <div class="info-row">
+                <span class="info-label">Codec:</span>
+                <span class="info-value" id="codec">--</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Channels:</span>
+                <span class="info-value" id="channels">--</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Bit Rate:</span>
+                <span class="info-value" id="bitRate">--</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Buffer:</span>
+                <span class="info-value" id="bufferInfo">--</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Duration:</span>
+                <span class="info-value" id="duration">--</span>
+            </div>
+        </div>
+
+        <div id="metadataSection" class="metadata-section">
+            <h3>📻 Now Playing</h3>
+            <div id="albumArtwork" style="display: none; text-align: center; margin-bottom: 15px;">
+                <img id="artworkImg" src="" alt="Album artwork" style="max-width: 200px; max-height: 200px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Station:</span>
+                <span class="metadata-value" id="metaStation">--</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Genre:</span>
+                <span class="metadata-value" id="metaGenre">--</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Title:</span>
+                <span class="metadata-value" id="metaTitle">--</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Artist:</span>
+                <span class="metadata-value" id="metaArtist">--</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Album:</span>
+                <span class="metadata-value" id="metaAlbum">--</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const audioPlayer = document.getElementById('audioPlayer');
+        const streamUrlInput = document.getElementById('streamUrl');
+        const streamPreset = document.getElementById('streamPreset');
+        const statusDiv = document.getElementById('status');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+        const streamInfo = document.getElementById('streamInfo');
+        const codecDisplay = document.getElementById('codec');
+        const channelsDisplay = document.getElementById('channels');
+        const bitRateDisplay = document.getElementById('bitRate');
+        const bufferInfoDisplay = document.getElementById('bufferInfo');
+        const durationDisplay = document.getElementById('duration');
+        const metadataSection = document.getElementById('metadataSection');
+        const metaStation = document.getElementById('metaStation');
+        const metaGenre = document.getElementById('metaGenre');
+        const metaTitle = document.getElementById('metaTitle');
+        const metaArtist = document.getElementById('metaArtist');
+        const metaAlbum = document.getElementById('metaAlbum');
+        const albumArtwork = document.getElementById('albumArtwork');
+        const artworkImg = document.getElementById('artworkImg');
+
+        let lastBufferedBytes = 0;
+        let lastBufferTime = 0;
+        let bitRateInterval = null;
+        let metadataInterval = null;
+        let metadataFetchFailed = false; // Track if metadata fetching failed due to CORS
+        // Removed audioContext and audioSource - caused issues in Chrome
+        // Audio plays through the audio element's default path instead
+
+        function selectPreset() {
+            const selectedValue = streamPreset.value;
+            if (selectedValue !== 'custom') {
+                streamUrlInput.value = selectedValue;
+            } else {
+                streamUrlInput.value = '';
+                streamUrlInput.focus();
+            }
+        }
+
+        function loadStream() {
+            const url = streamUrlInput.value.trim();
+
+            if (!url) {
+                showStatus('Please enter a stream URL', 'error');
+                return;
+            }
+
+            // Reset metadata fetch failure flag for new stream
+            metadataFetchFailed = false;
+
+            // Reset metadata display
+            metaStation.textContent = '--';
+            metaGenre.textContent = '--';
+            metaTitle.textContent = '--';
+            metaArtist.textContent = '--';
+            metaAlbum.textContent = '--';
+            albumArtwork.style.display = 'none';
+            artworkImg.src = '';
+
+            audioPlayer.src = url;
+            audioPlayer.load();
+            audioPlayer.play()
+                .then(() => {
+                    showStatus('Playing: ' + url, 'playing');
+                    streamInfo.classList.add('visible');
+                    startBitRateMonitoring();
+                    fetchStreamMetadata(url);
+                    startMetadataMonitoring();
+                })
+                .catch(error => {
+                    showStatus('Error playing stream: ' + error.message, 'error');
+                    streamInfo.classList.remove('visible');
+                    metadataSection.classList.remove('visible');
+                });
+        }
+
+        function stopStream() {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            statusDiv.style.display = 'none';
+            streamInfo.classList.remove('visible');
+            metadataSection.classList.remove('visible');
+            stopBitRateMonitoring();
+            stopMetadataMonitoring();
+        }
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+
+        // Volume control
+        volumeSlider.addEventListener('input', function() {
+            const volume = this.value / 100;
+            audioPlayer.volume = volume;
+            volumeValue.textContent = this.value + '%';
+        });
+
+        // Bit rate monitoring
+        function startBitRateMonitoring() {
+            stopBitRateMonitoring();
+            lastBufferedBytes = 0;
+            lastBufferTime = Date.now();
+
+            bitRateInterval = setInterval(() => {
+                updateStreamInfo();
+            }, 1000);
+        }
+
+        function stopBitRateMonitoring() {
+            if (bitRateInterval) {
+                clearInterval(bitRateInterval);
+                bitRateInterval = null;
+            }
+        }
+
+        function updateStreamInfo() {
+            // Calculate buffer info
+            if (audioPlayer.buffered.length > 0) {
+                const bufferedEnd = audioPlayer.buffered.end(audioPlayer.buffered.length - 1);
+                const currentTime = audioPlayer.currentTime;
+                const bufferedSeconds = bufferedEnd - currentTime;
+
+                bufferInfoDisplay.textContent = bufferedSeconds.toFixed(1) + ' seconds';
+            }
+
+            // Update duration
+            if (audioPlayer.duration && isFinite(audioPlayer.duration)) {
+                const minutes = Math.floor(audioPlayer.duration / 60);
+                const seconds = Math.floor(audioPlayer.duration % 60);
+                durationDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                durationDisplay.textContent = 'Live Stream';
+            }
+        }
+
+        // Estimate bit rate from buffer growth
+        function estimateBitRateFromBuffer() {
+            if (!audioPlayer.buffered || audioPlayer.buffered.length === 0) {
+                console.log('Cannot estimate bit rate - no buffered data');
+                return;
+            }
+
+            try {
+                // For live streams, estimate from buffered time and playback time
+                const bufferedEnd = audioPlayer.buffered.end(audioPlayer.buffered.length - 1);
+                const bufferedSeconds = bufferedEnd;
+
+                // Check if we have enough data to estimate
+                if (bufferedSeconds < 2) {
+                    console.log('Not enough buffered data to estimate bit rate');
+                    return;
+                }
+
+                // Estimate based on common bit rates for the detected codec
+                const codec = codecDisplay.textContent;
+                let estimatedBitRate = 128; // Default guess
+
+                if (codec.includes('AAC')) {
+                    // AAC streams are typically 64-128 kbps
+                    estimatedBitRate = 96;
+                } else if (codec.includes('MP3')) {
+                    // MP3 streams are typically 96-192 kbps
+                    estimatedBitRate = 128;
+                }
+
+                console.log('Estimated bit rate:', estimatedBitRate, 'kbps (fallback)');
+                if (bitRateDisplay.textContent === '--') {
+                    bitRateDisplay.textContent = estimatedBitRate + ' kbps (estimated)';
+                }
+            } catch (error) {
+                console.log('Could not estimate bit rate:', error);
+            }
+        }
+
+
+        // Event listeners for audio state changes
+        audioPlayer.addEventListener('progress', () => {
+            updateStreamInfo();
+        });
+
+        // Metadata functions
+        function fetchStreamMetadata(url) {
+            // Skip ICY headers for HLS streams - they don't support ICY metadata
+            const isHls = url.includes('.m3u8') || url.includes('m3u');
+            console.log('fetchStreamMetadata called for:', url, 'isHLS:', isHls);
+
+            // Try to fetch ICY metadata and codec info from stream headers
+            const headers = {};
+            if (!isHls) {
+                headers['Icy-MetaData'] = '1';
+                console.log('Requesting ICY metadata via HEAD request');
+            }
+
+            fetch(url, {
+                method: 'HEAD',
+                headers: headers
+            })
+            .then(response => {
+                // Extract ICY metadata from headers
+                const icyName = response.headers.get('icy-name');
+                const icyGenre = response.headers.get('icy-genre');
+                const icyDescription = response.headers.get('icy-description');
+                const icyBr = response.headers.get('icy-br');
+                const contentType = response.headers.get('content-type');
+
+                console.log('HEAD response - ICY headers:', {
+                    name: icyName,
+                    genre: icyGenre,
+                    description: icyDescription,
+                    bitrate: icyBr,
+                    contentType: contentType
+                });
+
+                if (icyBr && bitRateDisplay.textContent === '--') {
+                    // Only use ICY bit rate if we haven't detected it from audio headers
+                    const parsedIcyBr = parseInt(icyBr);
+                    console.log('Parsed ICY bit rate from HEAD response:', parsedIcyBr, 'kbps');
+                    bitRateDisplay.textContent = parsedIcyBr + ' kbps (ICY)';
+                }
+
+                // Display station name and genre
+                if (icyName) {
+                    metaStation.textContent = icyName;
+                    metadataSection.classList.add('visible');
+                    console.log('Station name (ICY):', icyName);
+                }
+                if (icyGenre) {
+                    metaGenre.textContent = icyGenre;
+                    metadataSection.classList.add('visible');
+                    console.log('Genre (ICY):', icyGenre);
+                }
+
+                // Extract codec from content-type
+                if (contentType) {
+                    const codecInfo = parseContentType(contentType);
+                    codecDisplay.textContent = codecInfo;
+                }
+            })
+            .catch(error => {
+                // Check if this is a CORS error
+                if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+                    console.log('Metadata fetch blocked (likely CORS) - stream metadata not available via JavaScript');
+                    metadataFetchFailed = true;
+                } else {
+                    console.log('Could not fetch stream metadata:', error);
+                }
+            });
+        }
+
+        function parseContentType(contentType) {
+            const typeMap = {
+                'audio/mpeg': 'MP3',
+                'audio/mp3': 'MP3',
+                'audio/aac': 'AAC',
+                'audio/aacp': 'AAC+',
+                'audio/ogg': 'OGG Vorbis',
+                'audio/opus': 'Opus',
+                'audio/flac': 'FLAC',
+                'audio/wav': 'WAV',
+                'audio/x-wav': 'WAV',
+                'audio/webm': 'WebM',
+                'audio/mp4': 'MP4/AAC',
+                'application/vnd.apple.mpegurl': 'HLS (AAC/MP3)',
+                'application/x-mpegURL': 'HLS (AAC/MP3)'
+            };
+
+            const lowerType = contentType.toLowerCase();
+            for (const [mime, codec] of Object.entries(typeMap)) {
+                if (lowerType.includes(mime)) {
+                    return codec;
+                }
+            }
+            return contentType.split(';')[0] || 'Unknown';
+        }
+
+        function startMetadataMonitoring() {
+            stopMetadataMonitoring();
+
+            // Initial fetch
+            fetchIcyMetadata();
+
+            metadataInterval = setInterval(() => {
+                updateMetadata();
+                fetchIcyMetadata();
+            }, 5000); // Check every 5 seconds
+        }
+
+        function stopMetadataMonitoring() {
+            if (metadataInterval) {
+                clearInterval(metadataInterval);
+                metadataInterval = null;
+            }
+        }
+
+        function updateMetadata() {
+            // Try to get metadata from Media Session API
+            if ('mediaSession' in navigator && navigator.mediaSession.metadata) {
+                const metadata = navigator.mediaSession.metadata;
+                let hasData = false;
+
+                if (metadata.title && metadata.title !== '') {
+                    metaTitle.textContent = metadata.title;
+                    hasData = true;
+                }
+                if (metadata.artist && metadata.artist !== '') {
+                    metaArtist.textContent = metadata.artist;
+                    hasData = true;
+                }
+                // Only show album if it's different from title
+                if (metadata.album && metadata.album !== '' && metadata.album !== metadata.title) {
+                    metaAlbum.textContent = metadata.album;
+                    hasData = true;
+                } else if (metadata.album === metadata.title) {
+                    metaAlbum.textContent = '--';
+                    console.log('Album matches title (ICY), displaying as unknown');
+                }
+
+                if (hasData) {
+                    metadataSection.classList.add('visible');
+                }
+            }
+        }
+
+        // Fetch ICY metadata for current track info
+        async function fetchIcyMetadata() {
+            // Skip if we already know metadata fetching failed due to CORS
+            if (metadataFetchFailed) {
+                return;
+            }
+
+            try {
+                const url = audioPlayer.src;
+
+                // Check if this is a SomaFM stream - they have a metadata API
+                if (url.includes('somafm.com')) {
+                    await fetchSomaFmMetadata(url);
+                    return;
+                }
+
+                // For HLS streams, try to fetch and parse ID3 tags from segments
+                if (url.includes('.m3u8') || url.includes('m3u')) {
+                    await fetchHlsMetadata(url);
+                } else {
+                    // Try ICY metadata for regular streams (Icecast/Shoutcast)
+                    await fetchIcyMetadataFromStream(url);
+                }
+            } catch (error) {
+                console.log('Could not fetch ICY metadata:', error);
+            }
+        }
+
+        // Fetch metadata from SomaFM API
+        async function fetchSomaFmMetadata(streamUrl) {
+            try {
+                // Extract channel name from URL (e.g., groovesalad from the URL)
+                const channelMatch = streamUrl.match(/\/hls\/([^\/]+)\//);
+                if (!channelMatch) return;
+
+                const channel = channelMatch[1];
+                console.log('Fetching SomaFM metadata for channel:', channel);
+
+                // SomaFM provides JSON metadata
+                const metadataUrl = `https://somafm.com/songs/${channel}.json`;
+                const response = await fetch(metadataUrl);
+                const data = await response.json();
+
+                console.log('SomaFM metadata:', data);
+
+                if (data.songs && data.songs.length > 0) {
+                    const currentSong = data.songs[0];
+                    if (currentSong.title) {
+                        metaTitle.textContent = currentSong.title;
+                    }
+                    if (currentSong.artist) {
+                        metaArtist.textContent = currentSong.artist;
+                    }
+                    // Only show album if it's different from title
+                    if (currentSong.album && currentSong.album !== currentSong.title) {
+                        metaAlbum.textContent = currentSong.album;
+                    } else if (currentSong.album === currentSong.title) {
+                        metaAlbum.textContent = '--';
+                        console.log('Album matches title (SomaFM), displaying as unknown');
+                    }
+
+                    // Fetch artwork from API
+                    if (currentSong.artist && currentSong.title) {
+                        fetchArtworkFromAPI(currentSong.artist, currentSong.title).then(artworkUrl => {
+                            if (artworkUrl) {
+                                artworkImg.src = artworkUrl;
+                                albumArtwork.style.display = 'block';
+                                console.log('Displaying artwork from API (SomaFM)');
+                            }
+                        });
+                    }
+
+                    metadataSection.classList.add('visible');
+                }
+            } catch (error) {
+                console.log('Could not fetch SomaFM metadata:', error);
+            }
+        }
+
+        // Fetch ICY metadata by parsing the stream (for Icecast/Shoutcast)
+        async function fetchIcyMetadataFromStream(streamUrl) {
+            try {
+                console.log('Attempting to fetch ICY metadata from stream...');
+
+                // Skip ICY headers for HLS streams
+                const isHls = streamUrl.includes('.m3u8') || streamUrl.includes('m3u');
+                if (isHls) {
+                    console.log('Skipping ICY metadata fetch for HLS stream');
+                    return;
+                }
+
+                const response = await fetch(streamUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Icy-MetaData': '1'
+                    }
+                }).catch(err => {
+                    // Check if this is a CORS error
+                    if (err.message.includes('Failed to fetch') || err.name === 'TypeError') {
+                        console.log('ICY metadata fetch blocked (CORS restriction) - stream does not allow custom headers');
+                        metadataFetchFailed = true;
+                        throw err;
+                    }
+                    throw err;
+                });
+
+                // Check headers for ICY info
+                const icyName = response.headers.get('icy-name');
+                const icyGenre = response.headers.get('icy-genre');
+                const icyMetaint = response.headers.get('icy-metaint');
+                const icyBr = response.headers.get('icy-br');
+                const icyChannels = response.headers.get('icy-channels') || response.headers.get('ice-channels');
+
+                // Log ALL headers for debugging
+                const allHeaders = {};
+                response.headers.forEach((value, key) => {
+                    allHeaders[key] = value;
+                });
+
+                console.log('All Response Headers:', allHeaders);
+                console.log('ICY Headers:', {
+                    name: icyName,
+                    genre: icyGenre,
+                    metaint: icyMetaint,
+                    bitrate: icyBr,
+                    channels: icyChannels
+                });
+
+                if (icyBr) {
+                    const icyBitRate = parseInt(icyBr);
+                    // ICY headers are very reliable - prefer them over parsed values
+                    if (bitRateDisplay.textContent === '--' ||
+                        bitRateDisplay.textContent.includes('estimated') ||
+                        bitRateDisplay.textContent.includes('parsed')) {
+                        bitRateDisplay.textContent = icyBitRate + ' kbps';
+                        console.log('Using ICY bit rate:', icyBitRate, 'kbps (most reliable)');
+                    }
+                }
+
+                if (icyChannels && channelsDisplay.textContent === '--') {
+                    const ch = parseInt(icyChannels);
+                    const channelText = ch === 1 ? 'Mono' :
+                                       ch === 2 ? 'Stereo' :
+                                       ch + ' channels';
+                    channelsDisplay.textContent = channelText;
+                    console.log('ICY channels:', channelText);
+                }
+
+                // Display station name and genre
+                if (icyName && metaStation.textContent === '--') {
+                    metaStation.textContent = icyName;
+                    metadataSection.classList.add('visible');
+                    console.log('Station name (ICY GET):', icyName);
+                }
+                if (icyGenre && metaGenre.textContent === '--') {
+                    metaGenre.textContent = icyGenre;
+                    metadataSection.classList.add('visible');
+                    console.log('Genre (ICY GET):', icyGenre);
+                }
+
+                // If there's metadata interval, try to parse current song
+                if (icyMetaint) {
+                    console.log('Stream supports ICY metadata, interval:', icyMetaint);
+                    await parseIcyStreamMetadata(response, parseInt(icyMetaint));
+                } else {
+                    console.log('Stream does not provide icy-metaint header - no song metadata available via ICY');
+                }
+            } catch (error) {
+                // Don't log if we already know it's a CORS issue
+                if (!metadataFetchFailed) {
+                    console.log('Could not fetch ICY metadata:', error);
+                }
+            }
+        }
+
+        // Parse ICY metadata from the stream data
+        async function parseIcyStreamMetadata(response, metaint) {
+            try {
+                const reader = response.body.getReader();
+                let bytesRead = 0;
+                let buffer = new Uint8Array(0);
+
+                while (bytesRead < metaint + 1000) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    // Append to buffer
+                    const newBuffer = new Uint8Array(buffer.length + value.length);
+                    newBuffer.set(buffer);
+                    newBuffer.set(value, buffer.length);
+                    buffer = newBuffer;
+                    bytesRead += value.length;
+
+                    // Check if we've reached first metadata block
+                    if (buffer.length >= metaint + 1) {
+                        // Metadata length is at position metaint
+                        const metaLen = buffer[metaint] * 16;
+
+                        if (metaLen > 0 && buffer.length >= metaint + 1 + metaLen) {
+                            const metaBytes = buffer.slice(metaint + 1, metaint + 1 + metaLen);
+                            const metaString = new TextDecoder().decode(metaBytes);
+                            console.log('ICY Metadata string:', metaString);
+
+                            // Parse StreamTitle='Artist - Title';
+                            const titleMatch = metaString.match(/StreamTitle='([^']+)'/);
+                            if (titleMatch) {
+                                const streamTitle = titleMatch[1];
+                                console.log('Stream title:', streamTitle);
+
+                                // Try to parse "Artist - Title" format
+                                if (streamTitle.includes(' - ')) {
+                                    const parts = streamTitle.split(' - ');
+                                    const artist = parts[0].trim();
+                                    const title = parts.slice(1).join(' - ').trim();
+                                    metaArtist.textContent = artist;
+                                    metaTitle.textContent = title;
+
+                                    // Fetch artwork from API
+                                    fetchArtworkFromAPI(artist, title).then(artworkUrl => {
+                                        if (artworkUrl) {
+                                            artworkImg.src = artworkUrl;
+                                            albumArtwork.style.display = 'block';
+                                            console.log('Displaying artwork from API (ICY)');
+                                        }
+                                    });
+                                } else {
+                                    metaTitle.textContent = streamTitle;
+                                }
+                                metadataSection.classList.add('visible');
+                            }
+                        }
+                        break;
+                    }
+                }
+
+                reader.cancel();
+            } catch (error) {
+                console.log('Could not parse ICY stream metadata:', error);
+            }
+        }
+
+        // Fetch metadata from HLS stream segments
+        async function fetchHlsMetadata(manifestUrl) {
+            try {
+                console.log('Fetching HLS manifest for metadata:', manifestUrl);
+                const manifestResponse = await fetch(manifestUrl);
+                const manifestText = await manifestResponse.text();
+                console.log('HLS manifest fetched, length:', manifestText.length);
+                const lines = manifestText.split('\n');
+
+                // Find ALL segment URLs (not just the first)
+                const segmentUrls = [];
+                for (let line of lines) {
+                    line = line.trim();
+                    if (line && !line.startsWith('#')) {
+                        segmentUrls.push(line);
+                    }
+                }
+
+                if (segmentUrls.length === 0) {
+                    console.log('No URLs found in HLS manifest');
+                    return;
+                }
+
+                // Use the LAST segment (most recent) for current track metadata
+                // Older segments may have previous track info
+                const selectedUrl = segmentUrls[segmentUrls.length - 1];
+                console.log(`Found ${segmentUrls.length} segments, using most recent for metadata`);
+
+                // Resolve relative URL
+                const baseUrl = manifestUrl.substring(0, manifestUrl.lastIndexOf('/') + 1);
+                const fullUrl = selectedUrl.startsWith('http') ? selectedUrl : baseUrl + selectedUrl;
+
+                // Check if this is another playlist (master -> media playlist)
+                if (fullUrl.includes('.m3u8') || fullUrl.includes('.m3u')) {
+                    console.log('Found nested playlist (master -> media):', fullUrl);
+                    // Recursively fetch the media playlist
+                    await fetchHlsMetadata(fullUrl);
+                    return;
+                }
+
+                // Try to extract metadata from the segment URL itself
+                // Some streams (like KNKX/AudioCDN) encode metadata in the URL path
+                const urlMetadata = extractMetadataFromUrl(fullUrl);
+
+                // Check if this is an AudioCDN stream (they always use URL encoding)
+                const isAudioCdn = fullUrl.includes('cdnstream.com');
+
+                if (urlMetadata.title || urlMetadata.artist || urlMetadata.album) {
+                    console.log('Successfully extracted metadata from URL:', urlMetadata);
+
+                    if (urlMetadata.title) metaTitle.textContent = urlMetadata.title;
+                    if (urlMetadata.artist) metaArtist.textContent = urlMetadata.artist;
+                    // Only show album if it's different from title (some streams duplicate title in album field)
+                    if (urlMetadata.album && urlMetadata.album !== urlMetadata.title) {
+                        metaAlbum.textContent = urlMetadata.album;
+                    } else if (urlMetadata.album === urlMetadata.title) {
+                        metaAlbum.textContent = '--';
+                        console.log('Album matches title, displaying as unknown');
+                    }
+
+                    // Fetch artwork from API as fallback
+                    if (urlMetadata.artist && urlMetadata.title) {
+                        fetchArtworkFromAPI(urlMetadata.artist, urlMetadata.title).then(artworkUrl => {
+                            if (artworkUrl) {
+                                artworkImg.src = artworkUrl;
+                                albumArtwork.style.display = 'block';
+                                console.log('Displaying artwork from API (URL metadata)');
+                            }
+                        });
+                    }
+
+                    metadataSection.classList.add('visible');
+                    // Don't attempt to fetch the segment - we already have metadata
+                    return;
+                }
+
+                // For AudioCDN streams, don't try fetching segments (they expire quickly)
+                // Metadata is always in the URL for these streams
+                if (isAudioCdn) {
+                    console.log('AudioCDN stream - skipping segment fetch (metadata in URL only)');
+                    return;
+                }
+
+                // Fallback: try to fetch the segment for ID3 tags (only for non-AudioCDN streams)
+                console.log('No metadata in URL, fetching HLS segment for ID3 tags:', fullUrl);
+
+                try {
+                    const segmentResponse = await fetch(fullUrl);
+                    if (!segmentResponse.ok) {
+                        // Segment expired (common with HLS), don't spam console
+                        if (segmentResponse.status === 404) {
+                            console.log('Segment not available (expired or moved)');
+                        } else {
+                            console.log('Segment fetch failed with status:', segmentResponse.status);
+                        }
+                        return;
+                    }
+
+                    const arrayBuffer = await segmentResponse.arrayBuffer();
+                    console.log('HLS segment fetched, size:', arrayBuffer.byteLength, 'bytes');
+                    const id3Data = parseId3Tags(new DataView(arrayBuffer));
+
+                    console.log('Parsed ID3 data:', id3Data);
+
+                    if (id3Data.title || id3Data.artist || id3Data.album) {
+                        console.log('Found ID3 metadata:', id3Data);
+
+                        if (id3Data.title) metaTitle.textContent = id3Data.title;
+                        if (id3Data.artist) metaArtist.textContent = id3Data.artist;
+                        // Only show album if it's different from title
+                        if (id3Data.album && id3Data.album !== id3Data.title) {
+                            metaAlbum.textContent = id3Data.album;
+                        } else if (id3Data.album === id3Data.title) {
+                            metaAlbum.textContent = '--';
+                            console.log('Album matches title (ID3), displaying as unknown');
+                        }
+                        if (id3Data.genre) {
+                            metaGenre.textContent = id3Data.genre;
+                            console.log('Genre (ID3):', id3Data.genre);
+                        }
+                        if (id3Data.artwork) {
+                            artworkImg.src = id3Data.artwork;
+                            albumArtwork.style.display = 'block';
+                            console.log('Displaying ID3 album artwork');
+                        } else if (id3Data.artist && id3Data.title) {
+                            // Fallback to external API if no embedded artwork
+                            fetchArtworkFromAPI(id3Data.artist, id3Data.title).then(artworkUrl => {
+                                if (artworkUrl) {
+                                    artworkImg.src = artworkUrl;
+                                    albumArtwork.style.display = 'block';
+                                    console.log('Displaying artwork from API');
+                                }
+                            });
+                        }
+
+                        metadataSection.classList.add('visible');
+                    } else {
+                        console.log('No ID3 metadata found in HLS segment');
+                    }
+                } catch (segmentError) {
+                    // Quietly ignore fetch errors - segments expire quickly
+                    if (!segmentError.message.includes('Failed to fetch')) {
+                        console.log('Could not fetch segment:', segmentError.message);
+                    }
+                }
+            } catch (error) {
+                console.log('Could not fetch HLS metadata:', error);
+            }
+        }
+
+        // Fetch album artwork from external API (MusicBrainz Cover Art Archive)
+        async function fetchArtworkFromAPI(artist, title) {
+            if (!artist || !title) {
+                console.log('Cannot fetch artwork without artist and title');
+                return null;
+            }
+
+            try {
+                console.log('Searching for artwork via MusicBrainz API:', artist, '-', title);
+
+                // Search MusicBrainz for the recording
+                const searchQuery = encodeURIComponent(`artist:"${artist}" AND recording:"${title}"`);
+                const searchUrl = `https://musicbrainz.org/ws/2/recording?query=${searchQuery}&fmt=json&limit=1`;
+
+                const searchResponse = await fetch(searchUrl, {
+                    headers: {
+                        'User-Agent': 'AudioStreamPlayer/1.0 (Educational)'
+                    }
+                });
+
+                if (!searchResponse.ok) {
+                    console.log('MusicBrainz search failed:', searchResponse.status);
+                    return null;
+                }
+
+                const searchData = await searchResponse.json();
+
+                if (!searchData.recordings || searchData.recordings.length === 0) {
+                    console.log('No recordings found on MusicBrainz');
+                    return null;
+                }
+
+                const recording = searchData.recordings[0];
+                console.log('Found recording:', recording.title);
+
+                // Get the release ID from the first release
+                if (!recording.releases || recording.releases.length === 0) {
+                    console.log('No releases found for this recording');
+                    return null;
+                }
+
+                const releaseId = recording.releases[0].id;
+                console.log('Found release ID:', releaseId);
+
+                // Fetch cover art from Cover Art Archive
+                const coverArtUrl = `https://coverartarchive.org/release/${releaseId}/front-250`;
+
+                // Test if artwork exists (Cover Art Archive returns 307 redirect to image)
+                const artworkResponse = await fetch(coverArtUrl);
+
+                if (artworkResponse.ok) {
+                    console.log('Found artwork from Cover Art Archive');
+                    return coverArtUrl; // Return the URL directly, let browser fetch
+                } else {
+                    console.log('No artwork available in Cover Art Archive');
+                    return null;
+                }
+            } catch (error) {
+                console.log('Error fetching artwork from API:', error.message);
+                return null;
+            }
+        }
+
+        // Try to extract metadata encoded in segment URLs
+        function extractMetadataFromUrl(url) {
+            const result = { title: null, artist: null, album: null };
+
+            try {
+                // KNKX/AudioCDN encodes metadata in base64 protobuf format in the path
+                // Example URL has segments like: /6285_48k//LzYyODVfNDhr/Cg1TYW1ib3UgU2FtYm91EgxFbGlhbmUgRWxpYXM.../file/...
+                // The metadata is in one of the middle segments
+
+                // Split URL into path segments
+                const urlObj = new URL(url);
+                const pathSegments = urlObj.pathname.split('/').filter(s => s.length > 0);
+
+                // Look for segments that look like base64-encoded protobuf
+                // They typically start with 'Cg', 'Eg', 'Kg', 'Sg' (common protobuf field markers)
+                for (const segment of pathSegments) {
+                    // Skip known non-metadata segments
+                    if (segment === 'file' || segment === 'var' || segment === 'cache' ||
+                        segment.includes('_48k') || segment.includes('_256k') ||
+                        segment.includes('segment-') || segment.length < 30 ||
+                        segment.includes('.aac') || segment.includes('.ts') ||
+                        segment.includes('ttl=') || /^[A-Z0-9_]+$/.test(segment)) {
+                        continue;
+                    }
+
+                    // Check if it looks like protobuf metadata (starts with specific markers)
+                    // Protobuf field markers in base64: Cg=0x0A, Eg=0x12, Kg=0x22, Sg=0x52
+                    if (/^(Cg|Eg|Kg|Sg)[A-Za-z0-9+\/=]/.test(segment)) {
+                        try {
+                            // Strip trailing dots and other URL artifacts
+                            const cleanSegment = segment.replace(/\.+$/, '');
+
+                            // Verify it's mostly base64 characters
+                            if (!/^[A-Za-z0-9+\/=]+$/.test(cleanSegment)) {
+                                continue;
+                            }
+
+                            console.log('Trying to decode segment:', cleanSegment.substring(0, 50) + '...');
+
+                            // Try to decode as base64
+                            const decoded = atob(cleanSegment);
+                            console.log('Decoded successfully, length:', decoded.length, 'bytes');
+
+                            // Parse as protobuf-like format (field markers)
+                            // 0x0A (10) = field 1, 0x12 (18) = field 2, 0x4A (74) = field 9
+                            let offset = 0;
+
+                            while (offset < decoded.length) {
+                                const fieldType = decoded.charCodeAt(offset);
+                                offset++;
+
+                                if (offset >= decoded.length) break;
+
+                                const length = decoded.charCodeAt(offset);
+                                offset++;
+
+                                if (length === 0 || offset + length > decoded.length) break;
+
+                                const value = decoded.substring(offset, offset + length);
+                                offset += length;
+
+                                // Log all fields found for debugging
+                                console.log(`Protobuf field: 0x${fieldType.toString(16).toUpperCase().padStart(2, '0')} (${fieldType}), length: ${length}, value:`, value);
+
+                                // Field types: 0x0A = title, 0x12 = artist, 0x4A = album
+                                if (fieldType === 0x0A) {
+                                    // Title/track
+                                    if (!result.title) {
+                                        result.title = value;
+                                        console.log('  → Assigned to title');
+                                    } else {
+                                        console.log('  → Title already set, ignoring');
+                                    }
+                                } else if (fieldType === 0x12) {
+                                    // Artist
+                                    result.artist = value;
+                                    console.log('  → Assigned to artist');
+                                } else if (fieldType === 0x4A) {
+                                    // Album
+                                    result.album = value;
+                                    console.log('  → Assigned to album');
+                                } else {
+                                    console.log('  → Unknown field type, ignoring');
+                                }
+                            }
+
+                            // If we found metadata, we're done
+                            if (result.title || result.artist || result.album) {
+                                console.log('Successfully extracted metadata:', result);
+                                break;
+                            }
+                        } catch (decodeError) {
+                            // This segment wasn't valid base64, try next one
+                            continue;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('Error extracting URL metadata:', error.message);
+            }
+
+            return result;
+        }
+
+        // Parse ID3v2 tags from audio data
+        function parseId3Tags(dataView) {
+            const result = { title: null, artist: null, album: null, genre: null, artwork: null };
+
+            try {
+                // Look for ID3v2 header (starts with "ID3")
+                if (dataView.byteLength < 10) return result;
+
+                const id3 = String.fromCharCode(
+                    dataView.getUint8(0),
+                    dataView.getUint8(1),
+                    dataView.getUint8(2)
+                );
+
+                if (id3 !== 'ID3') return result;
+
+                const version = dataView.getUint8(3);
+                const flags = dataView.getUint8(5);
+
+                // Calculate tag size (syncsafe integer)
+                const size = ((dataView.getUint8(6) & 0x7f) << 21) |
+                            ((dataView.getUint8(7) & 0x7f) << 14) |
+                            ((dataView.getUint8(8) & 0x7f) << 7) |
+                            (dataView.getUint8(9) & 0x7f);
+
+                let offset = 10;
+
+                // Parse frames
+                while (offset < size + 10 && offset < dataView.byteLength - 10) {
+                    const frameId = String.fromCharCode(
+                        dataView.getUint8(offset),
+                        dataView.getUint8(offset + 1),
+                        dataView.getUint8(offset + 2),
+                        dataView.getUint8(offset + 3)
+                    );
+
+                    if (frameId === '\0\0\0\0') break;
+
+                    const frameSize = (dataView.getUint8(offset + 4) << 24) |
+                                    (dataView.getUint8(offset + 5) << 16) |
+                                    (dataView.getUint8(offset + 6) << 8) |
+                                    dataView.getUint8(offset + 7);
+
+                    offset += 10; // Skip frame header
+
+                    if (frameSize > 0 && offset + frameSize <= dataView.byteLength) {
+                        const encoding = dataView.getUint8(offset);
+                        let text = '';
+
+                        // Read text based on encoding
+                        if (encoding === 0 || encoding === 3) {
+                            // ISO-8859-1 or UTF-8
+                            const bytes = [];
+                            for (let i = offset + 1; i < offset + frameSize && i < dataView.byteLength; i++) {
+                                const byte = dataView.getUint8(i);
+                                if (byte === 0) break;
+                                bytes.push(byte);
+                            }
+                            text = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+                        }
+
+                        // Map frame IDs to metadata
+                        if (frameId === 'TIT2') result.title = text;
+                        if (frameId === 'TPE1') result.artist = text;
+                        if (frameId === 'TALB') result.album = text;
+                        if (frameId === 'TCON') result.genre = text;
+                    }
+
+                    // Parse APIC (Attached Picture) frame for album artwork
+                    if (frameId === 'APIC' && frameSize > 0 && !result.artwork) {
+                        try {
+                            let apicOffset = offset;
+                            const textEncoding = dataView.getUint8(apicOffset);
+                            apicOffset++;
+
+                            // Read MIME type (null-terminated)
+                            let mimeType = '';
+                            while (apicOffset < offset + frameSize) {
+                                const byte = dataView.getUint8(apicOffset);
+                                apicOffset++;
+                                if (byte === 0) break;
+                                mimeType += String.fromCharCode(byte);
+                            }
+
+                            // Read picture type (1 byte)
+                            const pictureType = dataView.getUint8(apicOffset);
+                            apicOffset++;
+
+                            // Skip description (null-terminated, encoding depends on textEncoding)
+                            while (apicOffset < offset + frameSize) {
+                                const byte = dataView.getUint8(apicOffset);
+                                apicOffset++;
+                                if (byte === 0) break;
+                            }
+
+                            // Rest is image data
+                            const imageDataSize = offset + frameSize - apicOffset;
+                            if (imageDataSize > 0) {
+                                const imageData = new Uint8Array(dataView.buffer, apicOffset, imageDataSize);
+
+                                // Convert to base64 data URL
+                                let binary = '';
+                                for (let i = 0; i < imageData.length; i++) {
+                                    binary += String.fromCharCode(imageData[i]);
+                                }
+                                const base64 = btoa(binary);
+                                const dataUrl = `data:${mimeType || 'image/jpeg'};base64,${base64}`;
+
+                                result.artwork = dataUrl;
+                                console.log('Found APIC artwork, type:', pictureType, 'MIME:', mimeType, 'size:', imageDataSize, 'bytes');
+                            }
+                        } catch (apicError) {
+                            console.log('Error parsing APIC frame:', apicError);
+                        }
+                    }
+
+                    offset += frameSize;
+                }
+            } catch (error) {
+                console.log('Error parsing ID3 tags:', error);
+            }
+
+            return result;
+        }
+
+        // Event listener for when audio metadata is loaded
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            updateStreamInfo();
+            detectAudioFormat();
+
+            // Enable all text tracks (especially metadata tracks for HLS)
+            const textTracks = audioPlayer.textTracks;
+            console.log('Audio metadata loaded');
+            console.log('Text tracks:', textTracks.length);
+
+            for (let i = 0; i < textTracks.length; i++) {
+                const track = textTracks[i];
+                console.log('Text track', i, ':', track.kind, track.label);
+
+                if (track.kind === 'metadata') {
+                    track.mode = 'hidden'; // Enable metadata track
+                    console.log('Enabled metadata track:', i);
+
+                    track.addEventListener('cuechange', () => {
+                        const cues = track.activeCues;
+                        if (cues && cues.length > 0) {
+                            console.log('Active cues:', cues.length);
+                            for (let j = 0; j < cues.length; j++) {
+                                const cue = cues[j];
+                                console.log('Cue:', cue);
+
+                                // Try to parse ID3 data from cue
+                                if (cue.value) {
+                                    console.log('Cue value:', cue.value);
+                                    parseId3Metadata(cue.value);
+                                } else if (cue.text) {
+                                    console.log('Cue text:', cue.text);
+                                    parseMetadataCue(cue);
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        // Listen for cuechange events which may contain metadata
+        audioPlayer.addEventListener('addtrack', (event) => {
+            console.log('Track added:', event);
+            if (event.track.kind === 'metadata') {
+                event.track.mode = 'hidden'; // Enable metadata track
+                event.track.addEventListener('cuechange', () => {
+                    const cues = event.track.activeCues;
+                    console.log('Metadata cues:', cues);
+                    if (cues && cues.length > 0) {
+                        for (let i = 0; i < cues.length; i++) {
+                            const cue = cues[i];
+                            console.log('Cue data:', cue);
+                            if (cue.value) {
+                                parseMetadataCue(cue.value);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        // Listen for generic metadata event (for HLS ID3 tags)
+        window.addEventListener('metadata', (event) => {
+            console.log('Window metadata event:', event);
+            const metadata = event.detail;
+            if (metadata) {
+                parseId3Metadata(metadata);
+            }
+        });
+
+        // Parse metadata from cue
+        function parseMetadataCue(cueData) {
+            console.log('Parsing cue data:', cueData);
+            try {
+                if (cueData.key === 'TXXX' || cueData.key === 'TIT2') {
+                    // ID3 metadata
+                    if (cueData.data) {
+                        const text = new TextDecoder().decode(cueData.data);
+                        console.log('Metadata text:', text);
+
+                        // Try to parse as "Artist - Title" format
+                        if (text.includes(' - ')) {
+                            const parts = text.split(' - ');
+                            if (parts.length >= 2) {
+                                const artist = parts[0].trim();
+                                const title = parts.slice(1).join(' - ').trim();
+                                metaArtist.textContent = artist;
+                                metaTitle.textContent = title;
+
+                                // Fetch artwork from API
+                                fetchArtworkFromAPI(artist, title).then(artworkUrl => {
+                                    if (artworkUrl) {
+                                        artworkImg.src = artworkUrl;
+                                        albumArtwork.style.display = 'block';
+                                        console.log('Displaying artwork from API (Cue)');
+                                    }
+                                });
+
+                                metadataSection.classList.add('visible');
+                            }
+                        } else {
+                            metaTitle.textContent = text;
+                            metadataSection.classList.add('visible');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error parsing metadata cue:', error);
+            }
+        }
+
+        // Parse ID3 metadata from HLS streams (like SomaFM does)
+        function parseId3Metadata(data) {
+            console.log('Parsing ID3 metadata:', data);
+            let hasData = false;
+
+            // Artist (TPE1)
+            if (data.TPE1) {
+                metaArtist.textContent = data.TPE1;
+                hasData = true;
+            }
+
+            // Title (TIT2)
+            if (data.TIT2) {
+                metaTitle.textContent = data.TIT2;
+                hasData = true;
+            }
+
+            // Album (TALB) - only show if different from title
+            if (data.TALB && data.TALB !== data.TIT2) {
+                metaAlbum.textContent = data.TALB;
+                hasData = true;
+            } else if (data.TALB === data.TIT2) {
+                metaAlbum.textContent = '--';
+                console.log('Album matches title (ID3 TALB), displaying as unknown');
+            }
+
+            // Genre (TCON)
+            if (data.TCON) {
+                metaGenre.textContent = data.TCON;
+                hasData = true;
+                console.log('Genre (ID3 TCON):', data.TCON);
+            }
+
+            // Technical data from TXXX tags
+            if (data.TXXX) {
+                // Bit rate - ID3 is very reliable, prefer it
+                if (data.TXXX.adr) {
+                    const id3BitRate = parseInt(data.TXXX.adr);
+                    if (bitRateDisplay.textContent === '--' ||
+                        bitRateDisplay.textContent.includes('estimated') ||
+                        bitRateDisplay.textContent.includes('parsed')) {
+                        bitRateDisplay.textContent = id3BitRate + ' kbps';
+                        console.log('Using ID3 bit rate:', id3BitRate, 'kbps (most reliable)');
+                    }
+                }
+
+                // Channels - only update if still unknown or if it says "typical"
+                if (data.TXXX.ach && (channelsDisplay.textContent === '--' || channelsDisplay.textContent.includes('typical'))) {
+                    const ch = parseInt(data.TXXX.ach);
+                    console.log('ID3 channels raw value:', data.TXXX.ach, 'parsed:', ch);
+
+                    // Sanity check: internet radio streams are typically mono or stereo
+                    // Surround configs (>2 channels) are likely errors
+                    if (ch > 2) {
+                        console.warn('ID3 reports', ch, 'channels - unusual for internet radio, likely stereo');
+                        channelsDisplay.textContent = 'Stereo (likely, ID3 says ' + ch + ')';
+                    } else {
+                        const channelText = ch === 1 ? 'Mono' : 'Stereo';
+                        channelsDisplay.textContent = channelText;
+                        console.log('ID3 channels:', channelText);
+                    }
+                }
+
+                // Audio Object Type (codec)
+                if (data.TXXX.aot && codecDisplay.textContent === '--') {
+                    const aot = data.TXXX.aot;
+                    let codecText = '';
+                    if (aot === '2') codecText = 'AAC-LC';
+                    else if (aot === '5') codecText = 'HE-AACv1';
+                    else if (aot === '29') codecText = 'HE-AACv2';
+                    else if (aot === '42') codecText = 'xHE-AAC';
+
+                    if (codecText) {
+                        codecDisplay.textContent = codecText;
+                        console.log('ID3 codec:', codecText);
+                    }
+                }
+            }
+
+            // File type (TFLT)
+            if (data.TFLT) {
+                const ftype = data.TFLT.replace(/\0/g, '');
+                if (ftype === 'FLAC' || ftype === 'ALAC') {
+                    codecDisplay.textContent = ftype + ' (Lossless)';
+                    console.log('ID3 file type:', ftype);
+                }
+            }
+
+            if (hasData) {
+                metadataSection.classList.add('visible');
+            }
+        }
+
+        // Detect audio format by parsing the actual stream data
+        async function detectAudioFormat() {
+            try {
+                // NOTE: We don't create Web Audio API context here anymore
+                // It was causing audio issues in Chrome by disconnecting the audio element
+                // The audio element plays through its default path instead
+
+                // Fetch actual stream data to parse headers
+                const url = audioPlayer.src;
+                console.log('Fetching stream from:', url);
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Range': 'bytes=0-32768' // Get first 32KB to analyze
+                    }
+                }).catch(err => {
+                    console.log('Fetch with Range failed, trying without:', err);
+                    return fetch(url);
+                });
+
+                const arrayBuffer = await response.arrayBuffer();
+                const dataView = new DataView(arrayBuffer);
+                const contentType = response.headers.get('content-type') || '';
+
+                console.log('Content-Type:', contentType);
+                console.log('Buffer size:', arrayBuffer.byteLength);
+
+                let channels = null;
+                let detectedCodec = null;
+                let bitRate = null;
+
+                // Check for HLS first - if it's an m3u8 URL, it's definitely HLS
+                const isHls = url.includes('.m3u8') || url.includes('.m3u') ||
+                              contentType.includes('mpegurl') || contentType.includes('application/vnd.apple');
+
+                if (isHls) {
+                    console.log('Detected HLS stream from URL/content-type');
+                    const text = new TextDecoder().decode(arrayBuffer);
+                    const hlsInfo = await parseHlsManifest(text, url);
+                    console.log('HLS info:', hlsInfo);
+                    if (hlsInfo.codec) detectedCodec = hlsInfo.codec;
+                    if (hlsInfo.channels) channels = hlsInfo.channels;
+                    if (hlsInfo.bitRate) bitRate = hlsInfo.bitRate;
+                }
+
+                // Use URL and content-type hints to guide detection for non-HLS streams
+                if (!isHls) {
+                    const likelyMp3 = url.includes('/mp3') || url.endsWith('.mp3') ||
+                                     contentType.includes('audio/mpeg') || contentType.includes('audio/mp3');
+                    const likelyAac = url.includes('/aac') || url.endsWith('.aac') || url.endsWith('.m4a') ||
+                                     contentType.includes('audio/aac') || contentType.includes('audio/aacp');
+
+                    console.log('Format hints - MP3:', likelyMp3, 'AAC:', likelyAac);
+                    console.log('Stream URL for analysis:', url);
+
+                        // Try MP3 first if URL suggests it
+                    if (likelyMp3 || !likelyAac) {
+                        const mp3Info = parseMp3Header(dataView);
+                        if (mp3Info.channels !== null) {
+                            console.log('Detected MP3:', mp3Info);
+                            channels = mp3Info.channels;
+                            bitRate = mp3Info.bitRate;
+                            detectedCodec = 'MP3';
+                            if (mp3Info.version) {
+                                detectedCodec += ` (${mp3Info.version} Layer ${mp3Info.layer})`;
+                            }
+                        }
+                    }
+
+                    // Try AAC if MP3 didn't work or AAC is likely
+                    if (!detectedCodec && (likelyAac || !likelyMp3)) {
+                        const aacInfo = parseAacHeader(dataView);
+                        if (aacInfo.channels !== null) {
+                            console.log('Detected AAC:', aacInfo);
+                            channels = aacInfo.channels;
+                            bitRate = aacInfo.bitRate;
+                            detectedCodec = 'AAC';
+                        }
+                    }
+
+                    // If still nothing, try both and pick the one with better confidence
+                    if (!detectedCodec) {
+                        console.log('No format detected from hints, trying both...');
+                        const mp3Info = parseMp3Header(dataView);
+                        const aacInfo = parseAacHeader(dataView);
+
+                        // Prefer MP3 if both found (MP3 is more common)
+                        if (mp3Info.channels !== null) {
+                            console.log('Detected MP3 (fallback):', mp3Info);
+                            channels = mp3Info.channels;
+                            bitRate = mp3Info.bitRate;
+                            detectedCodec = 'MP3';
+                            if (mp3Info.version) {
+                                detectedCodec += ` (${mp3Info.version} Layer ${mp3Info.layer})`;
+                            }
+                        } else if (aacInfo.channels !== null) {
+                            console.log('Detected AAC (fallback):', aacInfo);
+                            channels = aacInfo.channels;
+                            bitRate = aacInfo.bitRate;
+                            detectedCodec = 'AAC';
+                        }
+                    }
+                }
+
+                // Try to extract channels from URL (e.g., /mono/, /stereo/)
+                let urlChannels = null;
+                if (url.match(/[-_\/]mono[-_\/\.\?]/i) || url.match(/\/mono$/i)) {
+                    urlChannels = 1;
+                    console.log('Detected mono from URL');
+                } else if (url.match(/[-_\/]stereo[-_\/\.\?]/i) || url.match(/\/stereo$/i)) {
+                    urlChannels = 2;
+                    console.log('Detected stereo from URL');
+                }
+
+                // Try to extract bit rate from URL (e.g., /64k/, /128k/, _128, -128, etc.)
+                // URL bit rate is often more reliable than parsed values
+                const urlBitRatePatterns = [
+                    /\/(\d+)k\//i,           // /64k/
+                    /\/(\d+)kbps\//i,        // /128kbps/
+                    /_(\d+)k[_\/\?\.\-]/i,   // _128k_ or _128k/ or _128k- or _128k.
+                    /-(\d+)k[_\/\?\.\-]/i,   // -128k/ or -128k_
+                    /\/(\d+)k$/i,            // /64k at end of URL
+                    /_(\d+)k$/i,             // _64k at end of URL
+                    /-(\d+)k$/i,             // -64k at end of URL
+                    /_(\d+)kbps/i,           // _128kbps
+                    /-(\d+)kbps/i,           // -128kbps
+                ];
+
+                let urlBitRate = null;
+                for (const pattern of urlBitRatePatterns) {
+                    const match = url.match(pattern);
+                    if (match) {
+                        const value = parseInt(match[1]);
+
+                        // Validate it's a reasonable bit rate (typically 8-500 kbps for streams)
+                        if (value >= 8 && value <= 500) {
+                            urlBitRate = value;
+                            console.log('Extracted bit rate from URL with pattern', pattern, ':', urlBitRate + ' kbps');
+                            break;
+                        }
+                    }
+                }
+
+                if (urlBitRate) {
+                    // If parsed bit rate differs significantly from URL, trust URL
+                    if (!bitRate || Math.abs(bitRate - urlBitRate) > 20) {
+                        console.log('Using URL bit rate instead of parsed:', urlBitRate);
+                        bitRate = urlBitRate;
+                    }
+                } else if (!bitRate) {
+                    // If no bit rate detected from URL or parsing, use ICY header if available
+                    console.log('No bit rate detected from URL or stream data');
+                }
+
+                // Validate bit rate is reasonable and round to common values
+                if (bitRate) {
+                    // Common bit rates for internet radio
+                    const commonBitRates = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+
+                    // Check if it's reasonable
+                    if (bitRate < 8 || bitRate > 500) {
+                        console.warn('Detected bit rate seems invalid:', bitRate);
+                        bitRate = null;
+                    } else {
+                        // Find the closest common bit rate
+                        const closest = commonBitRates.reduce((prev, curr) =>
+                            Math.abs(curr - bitRate) < Math.abs(prev - bitRate) ? curr : prev
+                        );
+
+                        // If parsed rate is within 15% of a common rate, use the common rate
+                        if (Math.abs(bitRate - closest) / bitRate < 0.15) {
+                            console.log('Rounding bit rate', bitRate, 'to common rate:', closest);
+                            bitRate = closest;
+                        } else {
+                            console.log('Using parsed bit rate:', bitRate, 'kbps');
+                        }
+                    }
+                }
+
+                // Update displays with detected values
+                if (channels) {
+                    const channelText = channels === 1 ? 'Mono' :
+                                       channels === 2 ? 'Stereo' :
+                                       channels === 6 ? '5.1 Surround' :
+                                       channels === 8 ? '7.1 Surround' :
+                                       channels + ' channels';
+                    channelsDisplay.textContent = channelText;
+                    console.log('Set channels:', channelText);
+                } else if (urlChannels) {
+                    // Use URL hint if we couldn't parse from frames
+                    const channelText = urlChannels === 1 ? 'Mono (from URL)' : 'Stereo (from URL)';
+                    channelsDisplay.textContent = channelText;
+                    console.log('Set channels:', channelText);
+                } else {
+                    // Most internet radio streams are stereo
+                    // Only set default if we have no other source of channel info
+                    console.log('Could not detect channels from audio data');
+                }
+
+                if (bitRate) {
+                    const source = urlBitRate === bitRate ? '(from URL)' :
+                                  bitRate >= 56 && bitRate <= 320 ? '' : '(parsed)';
+                    bitRateDisplay.textContent = bitRate + ' kbps ' + source;
+                    console.log('Set bitrate:', bitRate + ' kbps', source);
+                } else {
+                    console.log('Could not determine bit rate - will try ICY headers or estimate');
+                }
+
+                if (detectedCodec) {
+                    codecDisplay.textContent = detectedCodec;
+                    console.log('Set codec:', detectedCodec);
+                }
+
+                // After all detection, set defaults for missing values
+                setTimeout(() => {
+                    // Default channels to stereo if still unknown (and no URL hint)
+                    if (channelsDisplay.textContent === '--') {
+                        if (urlChannels) {
+                            const channelText = urlChannels === 1 ? 'Mono (from URL)' : 'Stereo (from URL)';
+                            channelsDisplay.textContent = channelText;
+                            console.log('Using URL channel hint after timeout:', channelText);
+                        } else {
+                            channelsDisplay.textContent = 'Stereo (typical)';
+                            console.log('Defaulting to stereo - most common for internet radio');
+                        }
+                    }
+
+                    // If bit rate still unknown after 3 seconds, try to estimate from buffer
+                    if (bitRateDisplay.textContent === '--' || bitRateDisplay.textContent.includes('parsed')) {
+                        estimateBitRateFromBuffer();
+                    }
+                }, 3000); // Wait 3 seconds for ICY/ID3 metadata to arrive
+
+            } catch (error) {
+                console.error('Could not detect audio format from stream data:', error);
+                // Don't set fallback values - leave as "--" or try ICY headers
+            }
+        }
+
+        // Parse MP3 frame header to extract sample rate, channels, and bit rate - analyze multiple frames
+        function parseMp3Header(dataView) {
+            const results = [];
+            let frameCount = 0;
+            const maxFrames = 5; // Analyze up to 5 frames
+
+            console.log('Searching for MP3 frames in', dataView.byteLength, 'bytes');
+
+            // Look for MP3 sync word (0xFFE or 0xFFF)
+            for (let i = 0; i < dataView.byteLength - 4 && frameCount < maxFrames; i++) {
+                const byte1 = dataView.getUint8(i);
+                const byte2 = dataView.getUint8(i + 1);
+
+                // Check for sync word (11 bits set)
+                if (byte1 === 0xFF && (byte2 & 0xE0) === 0xE0) {
+                    const version = (byte2 >> 3) & 0x03;
+                    const layer = (byte2 >> 1) & 0x03;
+                    const byte3 = dataView.getUint8(i + 2);
+                    const bitrateIndex = (byte3 >> 4) & 0x0F;
+                    const sampleRateIndex = (byte3 >> 2) & 0x03;
+                    const byte4 = dataView.getUint8(i + 3);
+                    const channelMode = (byte4 >> 6) & 0x03;
+
+                    // Sample rate table for MPEG1
+                    const sampleRates = [44100, 48000, 32000];
+                    let sampleRate = sampleRates[sampleRateIndex];
+
+                    // Validate sample rate index
+                    if (sampleRateIndex === 3 || !sampleRate) {
+                        continue; // Reserved or invalid
+                    }
+
+                    // Bit rate tables (in kbps)
+                    // MPEG1 Layer 3
+                    const bitrates_v1_l3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+                    // MPEG1 Layer 2
+                    const bitrates_v1_l2 = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0];
+                    // MPEG1 Layer 1
+                    const bitrates_v1_l1 = [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0];
+                    // MPEG2/2.5 Layer 3
+                    const bitrates_v2_l3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0];
+                    // MPEG2/2.5 Layer 2
+                    const bitrates_v2_l2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0];
+                    // MPEG2/2.5 Layer 1
+                    const bitrates_v2_l1 = [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0];
+
+                    let bitRate = 0;
+                    let versionStr = '';
+                    let layerNum = 0;
+
+                    // Determine version
+                    if (version === 3) {
+                        versionStr = 'MPEG-1';
+                        // Layer 1, 2, or 3
+                        if (layer === 3) {
+                            layerNum = 1;
+                            bitRate = bitrates_v1_l1[bitrateIndex];
+                        } else if (layer === 2) {
+                            layerNum = 2;
+                            bitRate = bitrates_v1_l2[bitrateIndex];
+                        } else if (layer === 1) {
+                            layerNum = 3;
+                            bitRate = bitrates_v1_l3[bitrateIndex];
+                        }
+                    } else if (version === 2) {
+                        versionStr = 'MPEG-2';
+                        sampleRate /= 2;
+                        if (layer === 3) {
+                            layerNum = 1;
+                            bitRate = bitrates_v2_l1[bitrateIndex];
+                        } else if (layer === 2) {
+                            layerNum = 2;
+                            bitRate = bitrates_v2_l2[bitrateIndex];
+                        } else if (layer === 1) {
+                            layerNum = 3;
+                            bitRate = bitrates_v2_l3[bitrateIndex];
+                        }
+                    } else if (version === 0) {
+                        versionStr = 'MPEG-2.5';
+                        sampleRate /= 4;
+                        if (layer === 3) {
+                            layerNum = 1;
+                            bitRate = bitrates_v2_l1[bitrateIndex];
+                        } else if (layer === 2) {
+                            layerNum = 2;
+                            bitRate = bitrates_v2_l2[bitrateIndex];
+                        } else if (layer === 1) {
+                            layerNum = 3;
+                            bitRate = bitrates_v2_l3[bitrateIndex];
+                        }
+                    }
+
+                    // MP3 Channel mode:
+                    // 00 = Stereo, 01 = Joint stereo, 10 = Dual channel, 11 = Mono
+                    // All except 11 (3) are stereo
+                    const channels = channelMode === 3 ? 1 : 2;
+
+                    if (bitRate > 0 && sampleRate > 0) {
+                        console.log(`MP3 frame ${frameCount + 1}: bitRate=${bitRate} kbps, sampleRate=${sampleRate} Hz, channels=${channels}, ${versionStr} Layer ${layerNum}`);
+                        results.push({
+                            sampleRate,
+                            channels,
+                            bitRate,
+                            version: versionStr,
+                            layer: layerNum,
+                            channelMode
+                        });
+                        frameCount++;
+                    }
+                }
+            }
+
+            // Return average of detected frames
+            if (results.length > 0) {
+                const avgBitRate = Math.round(results.reduce((sum, r) => sum + r.bitRate, 0) / results.length);
+
+                // Check if all frames agree on channel count
+                const channelCounts = results.map(r => r.channels);
+                const allSame = channelCounts.every(c => c === channelCounts[0]);
+                const channels = allSame ? channelCounts[0] : null;
+
+                const version = results[0].version;
+                const layer = results[0].layer;
+
+                console.log(`Analyzed ${results.length} MP3 frames:`, results);
+                console.log('MP3 average bit rate:', avgBitRate, 'kbps');
+                if (!allSame) {
+                    console.warn('Channel count inconsistent across frames:', channelCounts);
+                }
+
+                return { channels, bitRate: avgBitRate, version, layer };
+            }
+
+            return { channels: null, bitRate: null };
+        }
+
+        // Parse AAC ADTS header - analyze multiple frames for accuracy
+        function parseAacHeader(dataView) {
+            const results = [];
+            let frameCount = 0;
+            const maxFrames = 5; // Analyze up to 5 frames
+
+            console.log('Searching for AAC ADTS frames in', dataView.byteLength, 'bytes');
+
+            // Quick check: if buffer is too small or starts with text markers, skip
+            if (dataView.byteLength < 100) {
+                return { channels: null, bitRate: null };
+            }
+
+            // Look for ADTS sync word (0xFFF)
+            for (let i = 0; i < dataView.byteLength - 7 && frameCount < maxFrames; i++) {
+                const byte1 = dataView.getUint8(i);
+                const byte2 = dataView.getUint8(i + 1);
+
+                if (byte1 === 0xFF && (byte2 & 0xF0) === 0xF0) {
+                    const byte3 = dataView.getUint8(i + 2);
+                    const byte4 = dataView.getUint8(i + 3);
+                    const byte5 = dataView.getUint8(i + 4);
+                    const byte6 = dataView.getUint8(i + 5);
+
+                    const sampleRateIndex = (byte3 >> 2) & 0x0F;
+                    const channelConfig = ((byte3 & 0x01) << 2) | ((byte4 >> 6) & 0x03);
+
+                    // AAC sample rate table
+                    const sampleRates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+                    const sampleRate = sampleRates[sampleRateIndex];
+
+                    // Validate sample rate index (0x0F is escape value, >= 0x0D is reserved)
+                    if (!sampleRate || sampleRateIndex >= 0x0D) {
+                        continue;
+                    }
+
+                    // Extract frame length (13 bits)
+                    const frameLength = ((byte4 & 0x03) << 11) | (byte5 << 3) | ((byte6 >> 5) & 0x07);
+
+                    // Calculate bit rate from frame length
+                    // AAC frame contains 1024 samples
+                    const samplesPerFrame = 1024;
+                    const frameDuration = samplesPerFrame / sampleRate; // in seconds
+                    let bitRate = Math.round((frameLength * 8) / frameDuration / 1000); // in kbps
+
+                    console.log('Calculated AAC bit rate from frame:', bitRate, 'kbps (frameLength:', frameLength, 'sampleRate:', sampleRate + ')');
+
+                    // AAC bit rate calculation can be noisy - validate it's reasonable
+                    if (bitRate < 8 || bitRate > 500) {
+                        console.log('AAC bit rate outside valid range (8-500 kbps) - ignoring');
+                        bitRate = null;
+                    }
+
+                    // Map channel config to actual channel count
+                    // Config 0 means defined elsewhere - we can't determine it
+                    const channelMap = {
+                        0: null, // Defined in AOT Specific Config - unknown
+                        1: 1,    // Mono (center front)
+                        2: 2,    // Stereo (left, right front)
+                        3: 3,    // 3 channels (center, left, right front)
+                        4: 4,    // 4 channels (center, left, right front + rear surround)
+                        5: 5,    // 5 channels (center, left, right front + left, right rear)
+                        6: 6,    // 5.1 channels (center, left, right front + left, right rear + LFE)
+                        7: 8     // 7.1 channels
+                    };
+                    let channels = channelMap[channelConfig];
+
+                    console.log('AAC ADTS channel config:', channelConfig, '→', channels, 'channels');
+
+                    // Sanity check: internet radio streams are typically mono or stereo
+                    // Surround configs (3-8 channels) are likely parsing errors for streaming radio
+                    if (channels !== null && channels > 2) {
+                        console.warn('AAC reports', channels, 'channels (config', channelConfig + ') - unusual for internet radio, likely stereo');
+                        // For radio streams, treat surround configs as stereo
+                        channels = 2;
+                    }
+
+                    // Only add to results if we have valid data
+                    if (sampleRate && channels !== null) {
+                        // Bit rate is optional - some frames might not calculate correctly
+                        results.push({ sampleRate, channels, bitRate: bitRate || null, channelConfig });
+                        frameCount++;
+                    }
+
+                    // Skip to next potential frame
+                    i += frameLength - 1;
+                }
+            }
+
+            // Return average of detected frames
+            if (results.length > 0) {
+                // Calculate average bit rate only from non-null values
+                const validBitRates = results.filter(r => r.bitRate !== null).map(r => r.bitRate);
+                const avgBitRate = validBitRates.length > 0 ?
+                    Math.round(validBitRates.reduce((sum, br) => sum + br, 0) / validBitRates.length) :
+                    null;
+
+                // Check if all frames agree on channel count
+                const channelCounts = results.map(r => r.channels);
+                const allSame = channelCounts.every(c => c === channelCounts[0]);
+                const channels = allSame ? channelCounts[0] : null;
+
+                console.log(`Analyzed ${results.length} AAC frames:`, results);
+                console.log('Valid bit rates from frames:', validBitRates);
+                console.log('Average bit rate from AAC frames:', avgBitRate, 'kbps');
+
+                if (!allSame) {
+                    console.warn('Channel count inconsistent across frames:', channelCounts);
+                }
+                if (validBitRates.length < results.length) {
+                    console.warn(`Only ${validBitRates.length}/${results.length} frames had valid bit rates`);
+                }
+
+                // For AAC, the calculated bit rate from frame length can be unreliable
+                // If all calculated rates are similar but seem odd, it might be calculation error
+                if (avgBitRate && validBitRates.length > 0) {
+                    const stdDev = Math.sqrt(validBitRates.reduce((sum, br) => sum + Math.pow(br - avgBitRate, 2), 0) / validBitRates.length);
+                    console.log('Bit rate standard deviation:', stdDev.toFixed(2));
+
+                    // High variance means unreliable calculation
+                    if (stdDev > avgBitRate * 0.2) {
+                        console.warn('High variance in AAC bit rate calculation - may be unreliable');
+                    }
+                }
+
+                return { channels, bitRate: avgBitRate };
+            }
+
+            return { channels: null, bitRate: null };
+        }
+
+        // Parse HLS manifest
+        async function parseHlsManifest(text, manifestUrl) {
+            const codecMatch = text.match(/CODECS="([^"]+)"/);
+            let codec = null;
+
+            if (codecMatch) {
+                const codecStr = codecMatch[1];
+                if (codecStr.startsWith('mp4a')) codec = 'HLS (AAC)';
+                if (codecStr.startsWith('mp3')) codec = 'HLS (MP3)';
+                if (codecStr.startsWith('flac')) codec = 'HLS (FLAC)';
+            }
+
+            // Check URL for codec hints
+            if (!codec) {
+                if (manifestUrl.includes('/FLAC/') || manifestUrl.includes('/flac/')) {
+                    codec = 'HLS (FLAC)';
+                } else if (manifestUrl.includes('/AAC/') || manifestUrl.includes('/aac/')) {
+                    codec = 'HLS (AAC)';
+                } else if (manifestUrl.includes('/MP3/') || manifestUrl.includes('/mp3/')) {
+                    codec = 'HLS (MP3)';
+                }
+            }
+
+            // Try to find and parse the first segment
+            const lines = text.split('\n');
+            let segmentUrl = null;
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line && !line.startsWith('#')) {
+                    // This is a segment URL
+                    segmentUrl = line;
+                    break;
+                }
+            }
+
+            if (segmentUrl) {
+                try {
+                    // Resolve relative URL
+                    const baseUrl = manifestUrl.substring(0, manifestUrl.lastIndexOf('/') + 1);
+                    const fullSegmentUrl = segmentUrl.startsWith('http') ? segmentUrl : baseUrl + segmentUrl;
+
+                    // Fetch first segment
+                    const segmentResponse = await fetch(fullSegmentUrl, {
+                        headers: { 'Range': 'bytes=0-8192' }
+                    });
+                    const segmentBuffer = await segmentResponse.arrayBuffer();
+                    const segmentView = new DataView(segmentBuffer);
+
+                    console.log('Parsing HLS segment, size:', segmentBuffer.byteLength, 'bytes');
+
+                    // Check if this looks like text (another manifest) instead of binary audio
+                    const firstBytes = new Uint8Array(segmentBuffer.slice(0, Math.min(100, segmentBuffer.byteLength)));
+                    const textCheck = new TextDecoder().decode(firstBytes);
+                    if (textCheck.includes('#EXTM3U') || textCheck.includes('#EXT-X-')) {
+                        console.log('Segment appears to be another manifest, not audio data');
+                        return { codec: codec || 'HLS' };
+                    }
+
+                    // Try FLAC first if URL suggests it
+                    if (codec && codec.includes('FLAC')) {
+                        const flacInfo = parseFlacHeader(segmentView);
+                        if (flacInfo.channels !== null) {
+                            console.log('Detected FLAC from segment - channels:', flacInfo.channels, 'bitRate:', flacInfo.bitRate, 'kbps');
+                            return {
+                                codec: 'HLS (FLAC)',
+                                channels: flacInfo.channels,
+                                bitRate: flacInfo.bitRate
+                            };
+                        }
+                    }
+
+                    // Try to parse as AAC or MP3
+                    const aacInfo = parseAacHeader(segmentView);
+                    if (aacInfo.channels !== null) {
+                        console.log('Detected AAC from segment - channels:', aacInfo.channels, 'bitRate:', aacInfo.bitRate, 'kbps');
+                        return {
+                            codec: codec || 'HLS (AAC)',
+                            channels: aacInfo.channels,
+                            bitRate: aacInfo.bitRate
+                        };
+                    }
+
+                    const mp3Info = parseMp3Header(segmentView);
+                    if (mp3Info.channels !== null) {
+                        console.log('Detected MP3 from segment - channels:', mp3Info.channels, 'bitRate:', mp3Info.bitRate, 'kbps');
+                        return {
+                            codec: codec || 'HLS (MP3)',
+                            channels: mp3Info.channels,
+                            bitRate: mp3Info.bitRate
+                        };
+                    }
+
+                    // Try FLAC as fallback
+                    const flacInfo = parseFlacHeader(segmentView);
+                    if (flacInfo.channels !== null) {
+                        console.log('Detected FLAC from segment (fallback) - channels:', flacInfo.channels, 'bitRate:', flacInfo.bitRate, 'kbps');
+                        return {
+                            codec: 'HLS (FLAC)',
+                            channels: flacInfo.channels,
+                            bitRate: flacInfo.bitRate
+                        };
+                    }
+
+                    console.log('Could not detect codec from segment');
+                } catch (error) {
+                    console.log('Could not fetch HLS segment:', error);
+                }
+            }
+
+            return { codec: codec || 'HLS' };
+        }
+
+        // Parse FLAC header
+        function parseFlacHeader(dataView) {
+            try {
+                // FLAC files start with "fLaC" (0x664C6143)
+                if (dataView.byteLength < 4) {
+                    return { channels: null, bitRate: null };
+                }
+
+                const marker = String.fromCharCode(
+                    dataView.getUint8(0),
+                    dataView.getUint8(1),
+                    dataView.getUint8(2),
+                    dataView.getUint8(3)
+                );
+
+                if (marker !== 'fLaC') {
+                    return { channels: null, bitRate: null };
+                }
+
+                console.log('Found FLAC marker');
+
+                // Look for STREAMINFO block (type 0)
+                let offset = 4;
+                while (offset < dataView.byteLength - 4) {
+                    const blockHeader = dataView.getUint8(offset);
+                    const blockType = blockHeader & 0x7F;
+                    const blockLength = (dataView.getUint8(offset + 1) << 16) |
+                                       (dataView.getUint8(offset + 2) << 8) |
+                                       dataView.getUint8(offset + 3);
+
+                    offset += 4;
+
+                    if (blockType === 0) { // STREAMINFO
+                        // Skip min/max block size (4 bytes) and min/max frame size (6 bytes)
+                        offset += 10;
+
+                        if (offset + 8 > dataView.byteLength) break;
+
+                        // Sample rate is 20 bits, channels is 3 bits
+                        const byte1 = dataView.getUint8(offset);
+                        const byte2 = dataView.getUint8(offset + 1);
+                        const byte3 = dataView.getUint8(offset + 2);
+
+                        const sampleRate = (byte1 << 12) | (byte2 << 4) | (byte3 >> 4);
+                        const channels = ((byte3 >> 1) & 0x07) + 1; // 3 bits, 0-7 means 1-8 channels
+                        const bitsPerSample = (((byte3 & 0x01) << 4) | (dataView.getUint8(offset + 3) >> 4)) + 1;
+
+                        console.log('FLAC info - Sample rate:', sampleRate, 'Channels:', channels, 'Bits per sample:', bitsPerSample);
+
+                        // FLAC is lossless, no meaningful "bit rate" in the compressed sense
+                        // Estimate based on sample rate, channels, and bits per sample
+                        const estimatedBitRate = Math.round(sampleRate * channels * bitsPerSample / 1000);
+                        console.log('Calculated FLAC uncompressed bit rate:', estimatedBitRate, 'kbps');
+
+                        return {
+                            channels: channels,
+                            bitRate: estimatedBitRate // This is the uncompressed bit rate
+                        };
+                    }
+
+                    offset += blockLength;
+                }
+            } catch (error) {
+                console.log('Error parsing FLAC header:', error);
+            }
+
+            return { channels: null, bitRate: null };
+        }
+
+        // Allow Enter key to load stream
+        streamUrlInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                loadStream();
+            }
+        });
+
+        // Update preset dropdown when URL is manually changed
+        streamUrlInput.addEventListener('input', function() {
+            const currentUrl = streamUrlInput.value;
+            let foundMatch = false;
+
+            for (let i = 0; i < streamPreset.options.length; i++) {
+                if (streamPreset.options[i].value === currentUrl) {
+                    streamPreset.selectedIndex = i;
+                    foundMatch = true;
+                    break;
+                }
+            }
+
+            if (!foundMatch) {
+                // Select "Custom URL..." option
+                for (let i = 0; i < streamPreset.options.length; i++) {
+                    if (streamPreset.options[i].value === 'custom') {
+                        streamPreset.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Set initial volume
+        audioPlayer.volume = 0.75;
+    </script>
+</body>
+</html>
