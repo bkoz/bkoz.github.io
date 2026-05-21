@@ -110,6 +110,11 @@ Album artwork is displayed using a two-tier approach:
   - Fetches 250px cover art from Cover Art Archive
   - Free, no API key required
   - Used for Radio Paradise, KNKX, and streams without embedded artwork
+  - **Rate limit protection**:
+    - Caches searched tracks (artist:title) to prevent duplicate API calls
+    - Stops queries after 3 consecutive failures
+    - Resets on success or new stream
+    - Cache limited to 100 tracks (FIFO eviction)
 
 ## Important Implementation Details
 
@@ -173,7 +178,7 @@ Comprehensive `console.log()` statements throughout for debugging:
   - FLAC uncompressed rate estimation from sample rate/channels/bits
   - Final display value with source attribution (URL/parsed/estimated)
 - **Metadata Extraction**: URL-encoded protobuf decoding, ID3 parsing, ICY metadata blocks, station/genre
-- **Album Artwork**: APIC frame parsing, MusicBrainz API searches, artwork display
+- **Album Artwork**: APIC frame parsing, MusicBrainz API searches, cache hits/misses, artwork display
 - **Validation Warnings**: Channel inconsistencies, invalid bit rates, parsing failures
 - **HLS Manifest**: Playlist parsing, segment selection (most recent), nested manifest detection
 
@@ -224,8 +229,12 @@ Update `commonBitRates` array in `detectAudioFormat()`.
 7. **Album artwork**:
    - "Found APIC artwork, type: X MIME: image/jpeg size: Y bytes" = embedded ID3 artwork found
    - "Searching for artwork via MusicBrainz API: Artist - Title" = API fallback search
+   - "Artwork already searched for this track, skipping API call" = cache hit, preventing duplicate query
    - "Found artwork from Cover Art Archive" = API successfully returned artwork
    - "Displaying ID3 album artwork" / "Displaying artwork from API" = source of displayed artwork
+   - "Artwork API failures: X/3" = failure counter tracking for rate limit protection
+   - "Artwork API disabled after 3 consecutive failures (rate limit protection)" = API queries stopped
+   - "Artwork cache size limit reached, removing oldest entry" = cache at 100 track limit
 8. **Station and genre metadata**:
    - "Station name (ICY): ..." / "Genre (ICY): ..." = from ICY headers
    - "Genre (ID3): ..." / "Genre (ID3 TCON): ..." = from ID3 tags
@@ -258,6 +267,12 @@ Update `commonBitRates` array in `detectAudioFormat()`.
   - Player detects when album matches title and displays "--" instead
   - Common with radio streams that don't have actual album information
   - Applies to all metadata sources (ID3, ICY, URL-encoded, SomaFM API)
+- **Album Artwork API Rate Limiting**: MusicBrainz API fallback has built-in protection
+  - Each track (artist:title combination) is only searched once per session
+  - Stops queries after 3 consecutive failures to prevent rate limiting
+  - Cache and failure counter reset when loading a new stream
+  - Cache limited to 100 tracks (FIFO eviction)
+  - Embedded ID3 APIC artwork preferred (no API calls, works offline)
 - **FLAC Bit Rate**: Displayed value is uncompressed theoretical rate, not actual stream rate
   - FLAC uses lossless compression; actual compressed rate varies
   - Calculated as: sample rate × channels × bits per sample ÷ 1000

@@ -302,6 +302,9 @@
         let bitRateInterval = null;
         let metadataInterval = null;
         let metadataFetchFailed = false; // Track if metadata fetching failed due to CORS
+        let artworkApiFailures = 0; // Track consecutive artwork API failures
+        const MAX_ARTWORK_FAILURES = 3; // Stop after 3 consecutive failures
+        let artworkCache = new Set(); // Track tracks we've already searched for (artist:title)
         // Removed audioContext and audioSource - caused issues in Chrome
         // Audio plays through the audio element's default path instead
 
@@ -325,6 +328,8 @@
 
             // Reset metadata fetch failure flag for new stream
             metadataFetchFailed = false;
+            artworkApiFailures = 0; // Reset artwork API failure counter
+            artworkCache.clear(); // Clear artwork search cache for new stream
 
             // Reset metadata display
             metaStation.textContent = '--';
@@ -998,6 +1003,32 @@
                 return null;
             }
 
+            // Create cache key from artist and title
+            const cacheKey = `${artist.toLowerCase()}:${title.toLowerCase()}`;
+
+            // Skip if we've already searched for this track
+            if (artworkCache.has(cacheKey)) {
+                console.log('Artwork already searched for this track, skipping API call');
+                return null;
+            }
+
+            // Stop making API requests after too many failures to avoid rate limiting
+            if (artworkApiFailures >= MAX_ARTWORK_FAILURES) {
+                console.log('Artwork API disabled after', MAX_ARTWORK_FAILURES, 'consecutive failures (rate limit protection)');
+                artworkCache.add(cacheKey); // Add to cache to prevent retries
+                return null;
+            }
+
+            // Add to cache before searching to prevent duplicate requests
+            artworkCache.add(cacheKey);
+
+            // Limit cache size to prevent memory issues (keep last 100 tracks)
+            if (artworkCache.size > 100) {
+                const firstKey = artworkCache.values().next().value;
+                artworkCache.delete(firstKey);
+                console.log('Artwork cache size limit reached, removing oldest entry');
+            }
+
             try {
                 console.log('Searching for artwork via MusicBrainz API:', artist, '-', title);
 
@@ -1013,6 +1044,8 @@
 
                 if (!searchResponse.ok) {
                     console.log('MusicBrainz search failed:', searchResponse.status);
+                    artworkApiFailures++;
+                    console.log('Artwork API failures:', artworkApiFailures + '/' + MAX_ARTWORK_FAILURES);
                     return null;
                 }
 
@@ -1020,6 +1053,8 @@
 
                 if (!searchData.recordings || searchData.recordings.length === 0) {
                     console.log('No recordings found on MusicBrainz');
+                    artworkApiFailures++;
+                    console.log('Artwork API failures:', artworkApiFailures + '/' + MAX_ARTWORK_FAILURES);
                     return null;
                 }
 
@@ -1029,6 +1064,8 @@
                 // Get the release ID from the first release
                 if (!recording.releases || recording.releases.length === 0) {
                     console.log('No releases found for this recording');
+                    artworkApiFailures++;
+                    console.log('Artwork API failures:', artworkApiFailures + '/' + MAX_ARTWORK_FAILURES);
                     return null;
                 }
 
@@ -1043,13 +1080,18 @@
 
                 if (artworkResponse.ok) {
                     console.log('Found artwork from Cover Art Archive');
+                    artworkApiFailures = 0; // Reset counter on success
                     return coverArtUrl; // Return the URL directly, let browser fetch
                 } else {
                     console.log('No artwork available in Cover Art Archive');
+                    artworkApiFailures++;
+                    console.log('Artwork API failures:', artworkApiFailures + '/' + MAX_ARTWORK_FAILURES);
                     return null;
                 }
             } catch (error) {
                 console.log('Error fetching artwork from API:', error.message);
+                artworkApiFailures++;
+                console.log('Artwork API failures:', artworkApiFailures + '/' + MAX_ARTWORK_FAILURES);
                 return null;
             }
         }

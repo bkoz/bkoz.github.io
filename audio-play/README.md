@@ -6,6 +6,7 @@ A standalone HTML5 audio stream player with advanced codec detection and metadat
 
 ### Recent Improvements
 - **Album Artwork Display** - ID3 APIC frames with MusicBrainz API fallback for cover art
+- **Rate Limit Protection** - Caches searched tracks and stops API queries after 3 consecutive failures to prevent rate limiting
 - **Station & Genre Metadata** - Displays station name and genre from ICY headers and ID3 tags
 - **FLAC Support** - Full lossless audio detection and parsing
 - **Enhanced Bit Rate Logging** - Complete logging chain from detection to display
@@ -40,6 +41,11 @@ Two-tier approach for displaying album cover art:
   - Searches MusicBrainz database using artist and title
   - Fetches 250px cover art images
   - Free service, no API key required
+  - **Rate limit protection**:
+    - Caches searched tracks to prevent duplicate API calls
+    - Stops after 3 consecutive failures
+    - Resets on success or new stream
+    - Cache limited to 100 tracks
 
 ### Audio Detection
 - **Codec Detection** - Automatically identifies MP3, AAC (LC, HE-AACv1, HE-AACv2, xHE-AAC), FLAC, and HLS
@@ -278,7 +284,7 @@ Comprehensive `console.log()` statements throughout for debugging:
   - FLAC uncompressed rate estimation
   - Final display value with source attribution
 - **Metadata Extraction** - URL-encoded protobuf decoding, ID3 parsing, ICY metadata, station/genre
-- **Album Artwork** - APIC frame parsing, MusicBrainz API searches, artwork display source
+- **Album Artwork** - APIC frame parsing, MusicBrainz API searches, cache hits/misses, artwork display source
 - **Validation Warnings** - Channel inconsistencies, invalid bit rates, parsing failures, album deduplication
 - **HLS Manifest** - Playlist parsing, segment selection, nested manifest detection
 
@@ -318,8 +324,12 @@ Keep these logs when making changes - they're essential for diagnosing stream co
 8. **Album Artwork:**
    - "Found APIC artwork, type: X MIME: image/jpeg size: Y bytes" - embedded ID3 artwork
    - "Searching for artwork via MusicBrainz API: Artist - Title" - API search started
+   - "Artwork already searched for this track, skipping API call" - cache hit, preventing duplicate query
    - "Found artwork from Cover Art Archive" - API returned artwork
    - "Displaying ID3 album artwork" / "Displaying artwork from API" - artwork source
+   - "Artwork API failures: X/3" - failure counter tracking
+   - "Artwork API disabled after 3 consecutive failures (rate limit protection)" - API queries stopped
+   - "Artwork cache size limit reached, removing oldest entry" - cache at 100 track limit
 9. **Station and Genre:**
    - "Station name (ICY): ..." / "Genre (ICY): ..." - from ICY headers
    - "Genre (ID3): ..." - from ID3 TCON tags
@@ -355,6 +365,11 @@ Keep these logs when making changes - they're essential for diagnosing stream co
 - **Album Artwork API**: MusicBrainz API fallback requires internet connectivity
   - Artwork lookup may fail if artist/title metadata is inaccurate
   - Some tracks may not be in MusicBrainz database
+  - **Rate limit protection**:
+    - Each track (artist:title combination) is only searched once per session
+    - Stops queries after 3 consecutive failures
+    - Cache and failure counter reset when loading a new stream
+    - Cache limited to 100 tracks (oldest evicted first)
   - API queries are logged but failures don't affect playback
   - Embedded ID3 APIC artwork preferred when available (works offline)
 
