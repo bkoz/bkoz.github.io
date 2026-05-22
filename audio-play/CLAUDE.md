@@ -152,7 +152,7 @@ MP3 vs AAC detection uses URL/content-type hints first:
 This prevents false positives from sync word pattern matching.
 
 ### Preset Streams
-Default presets configured:
+Default presets configured (all use HTTPS for compatibility with secure hosting):
 - **Radio Paradise - Main Mix (FLAC)**: Direct FLAC stream with ICY metadata, album artwork via API (default)
 - **Radio Paradise - Rock Mix (FLAC)**: Direct FLAC stream with ICY metadata, album artwork via API
 - **Radio Paradise - Beyond (FLAC)**: Direct FLAC stream with ICY metadata, album artwork via API
@@ -247,6 +247,10 @@ Update `commonBitRates` array in `detectAudioFormat()`.
 
 ## Known Limitations
 
+- **Mixed Content Blocking**: When hosted on HTTPS (e.g., GitHub Pages), browsers block HTTP resources
+  - All preset streams use HTTPS URLs to prevent this issue
+  - Custom HTTP stream URLs will not work when the page is served over HTTPS
+  - Test locally with `file://` or HTTP server, deploy with HTTPS streams only
 - **AAC Bit Rate Calculation**: Frame-based calculation can be noisy/unreliable due to variable frame lengths
   - Standard deviation is calculated and logged to identify high variance
   - Falls back to URL patterns, ICY headers, or ID3 tags when available

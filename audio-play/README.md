@@ -203,7 +203,7 @@ This ensures track information stays current as songs change, typically with 2-5
 
 ## Preset Streams
 
-Default presets configured:
+Default presets configured (all use HTTPS for compatibility with secure hosting):
 - **Radio Paradise - Main Mix (FLAC)** - Direct FLAC stream with ICY metadata, album artwork via API (default)
 - **Radio Paradise - Rock Mix (FLAC)** - Direct FLAC stream with ICY metadata, album artwork via API
 - **Radio Paradise - Beyond (FLAC)** - Direct FLAC stream with ICY metadata, album artwork via API
@@ -340,6 +340,10 @@ Keep these logs when making changes - they're essential for diagnosing stream co
 
 ## Known Limitations
 
+- **Mixed Content Blocking**: When hosted on HTTPS (e.g., GitHub Pages), HTTP stream URLs will be blocked by browsers
+  - All preset streams use HTTPS to avoid this issue
+  - Custom HTTP URLs will not work on HTTPS-hosted sites
+  - Solution: Use HTTPS stream URLs or host on HTTP (local testing)
 - **AAC Bit Rate Calculation**: Frame-based calculation can be noisy/unreliable
   - Standard deviation logged to help identify variance issues
   - Falls back to URL/ICY/ID3 sources when available
