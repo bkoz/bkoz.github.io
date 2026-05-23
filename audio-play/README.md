@@ -6,8 +6,8 @@ A standalone HTML5 audio stream player with advanced codec detection and metadat
 
 ### Recent Improvements
 - **VU Meters** - Vertical LED-style audio level meters for left and right channels with real-time animation
-  - ✅ Works on: Chrome, Firefox, Edge (all platforms)
-  - ❌ Safari limitation: Blocked on Safari (macOS/iOS) due to browser security policy
+  - ✅ Works on: Chrome, Firefox, Edge (macOS, Windows, Linux, Android)
+  - ❌ Blocked on: Safari (macOS), ALL browsers on iOS/iPadOS (WebKit security policy)
 - **Album Artwork Display** - ID3 APIC frames with MusicBrainz API fallback for cover art
 - **Rate Limit Protection** - Caches searched tracks and stops API queries after 3 consecutive failures to prevent rate limiting
 - **Station & Genre Metadata** - Displays station name and genre from ICY headers and ID3 tags
@@ -212,15 +212,17 @@ Audio Element → MediaElementSource → ChannelSplitter → [Left Analyser, Rig
 **CORS Requirement & Browser Compatibility:**
 - Audio element uses `crossorigin="anonymous"` attribute
 - Required for Web Audio API to analyze cross-origin streams
-- Radio Paradise and other CORS-enabled streams work properly on Chrome/Firefox/Edge
+- Radio Paradise and other CORS-enabled streams work properly on desktop browsers
 - **Browser Support:**
-  - ✅ **Chrome** (macOS, Windows, Linux) - VU meters work perfectly
-  - ✅ **Firefox** (all platforms) - VU meters work perfectly
-  - ✅ **Edge** (all platforms) - VU meters work perfectly
-  - ❌ **Safari** (macOS) - Blocked by Safari security policy, VU meters auto-hide
-  - ❌ **Safari** (iOS/iPadOS) - Blocked by Safari security policy, VU meters auto-hide
-- Safari blocks Web Audio API data access even with proper CORS headers (security policy)
-- Audio playback works perfectly in Safari - only VU visualization is affected
+  - ✅ **Chrome** (macOS, Windows, Linux, Android) - VU meters work perfectly
+  - ✅ **Firefox** (macOS, Windows, Linux, Android) - VU meters work perfectly
+  - ✅ **Edge** (macOS, Windows, Linux, Android) - VU meters work perfectly
+  - ✅ **Safari** (macOS) - ❌ **BLOCKED** by Safari security policy, VU meters auto-hide
+  - ❌ **ALL browsers on iOS/iPadOS** - Blocked (Apple requires all browsers to use Safari's WebKit engine)
+    - Chrome (iOS), Firefox (iOS), Edge (iOS), Safari (iOS) - all affected
+    - iOS WebKit blocks Web Audio API data access (security policy)
+- Safari/WebKit blocks Web Audio API data access even with proper CORS headers
+- Audio playback works perfectly on all platforms - only VU visualization is affected on Safari/iOS
 
 #### 6. Error Handling & Data Validation
 
@@ -391,10 +393,13 @@ Keep these logs when making changes - they're essential for diagnosing stream co
    - "Created 20 VU meter bars for left and right channels" - bars initialized
    - "Stereo audio pipeline connected: source → splitter → [analysers + merger] → destination" - Web Audio API setup
    - "VU frame 0 - L: 85.1 (12 bars) R: 83.2 (11 bars)" - per-channel levels and active bars (working)
-   - "Raw FREQUENCY data sample - Left[0-9]: 0 0 0..." - Safari blocking detected (all zeros)
-   - "⚠️ Safari CORS Restriction Detected ⚠️" - VU meters blocked by Safari security policy
+   - "Raw FREQUENCY data sample - Left[0-9]: 0 0 0..." - Safari/WebKit blocking detected (all zeros)
+   - "⚠️ Safari CORS Restriction Detected ⚠️" - VU meters blocked by Safari/WebKit security policy
    - "VU meter hidden - not supported on Safari" - auto-hide triggered
-   - **Troubleshooting:** If VU meters don't work, check browser. Safari (macOS/iOS) blocks Web Audio API. Use Chrome, Firefox, or Edge instead.
+   - **Troubleshooting:** If VU meters don't work:
+     - On iOS/iPadOS: ALL browsers blocked (Apple requires WebKit engine) - no workaround available
+     - On macOS: Safari blocked, switch to Chrome, Firefox, or Edge
+     - On Windows/Linux/Android: Use Chrome, Firefox, or Edge
 11. **Validation Warnings:**
    - "High variance in AAC bit rate calculation - may be unreliable"
    - "Only X/Y frames had valid bit rates" - some AAC frames failed calculation
@@ -409,15 +414,18 @@ Keep these logs when making changes - they're essential for diagnosing stream co
 - **VU Meter CORS Requirement**: VU meters require CORS-enabled audio streams
   - Audio element uses `crossorigin="anonymous"` to enable Web Audio API analysis
   - Streams without proper CORS headers will play audio but VU meters show zero
-  - All preset streams support CORS and VU meters work correctly on **Chrome, Firefox, and Edge**
-  - **⚠️ Safari Limitation (macOS and iOS)**: VU meters do NOT work in Safari browsers
-    - Safari blocks Web Audio API data access as a security measure, even with CORS headers
-    - This affects Safari on **both macOS and iOS** (iPhone/iPad)
+  - All preset streams support CORS and VU meters work correctly on **desktop Chrome/Firefox/Edge and Android browsers**
+  - **⚠️ Safari/iOS WebKit Limitation**: VU meters do NOT work on Safari or any iOS browser
+    - Safari/WebKit blocks Web Audio API data access as a security measure, even with CORS headers
+    - **Affected browsers:**
+      - ❌ Safari (macOS)
+      - ❌ ALL browsers on iOS/iPadOS (Chrome, Firefox, Edge, Safari)
+      - Apple requires all iOS browsers to use Safari's WebKit engine, so all are affected
     - Audio plays perfectly, but VU meters cannot visualize the levels (browser security policy)
-    - VU meter automatically hides in Safari after detecting this restriction (~1 second)
-    - This is a known Safari limitation affecting all web-based audio visualization
-    - **✅ VU meters work on:** Chrome, Firefox, Edge (all platforms)
-    - **❌ VU meters blocked on:** Safari (macOS), Safari (iOS/iPadOS)
+    - VU meter automatically hides after detecting this restriction (~1 second)
+    - This is a known Safari/WebKit limitation affecting all web-based audio visualization
+    - **✅ VU meters work on:** Chrome, Firefox, Edge (macOS, Windows, Linux, Android)
+    - **❌ VU meters blocked on:** Safari (macOS), all browsers on iOS/iPadOS
   - Console warning: "MediaElementAudioSource outputs zeroes due to CORS access restrictions"
 - **AAC Bit Rate Calculation**: Frame-based calculation can be noisy/unreliable
   - Standard deviation logged to help identify variance issues

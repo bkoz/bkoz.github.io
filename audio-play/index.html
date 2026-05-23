@@ -2517,21 +2517,26 @@
                     console.log('AudioContext state:', audioContext.state, 'sampleRate:', audioContext.sampleRate);
                 }
 
-                // Detect Safari CORS blocking (all zeros even while audio playing)
+                // Detect Safari/WebKit CORS blocking (all zeros even while audio playing)
                 if (maxLeft === 0 && maxRight === 0 && !audioPlayer.paused && audioPlayer.currentTime > 0.5) {
                     zeroDataFrames++;
-                    // After 60 frames (~1 second) of zeros while audio is playing, it's Safari CORS blocking
+                    // After 60 frames (~1 second) of zeros while audio is playing, it's Safari/WebKit CORS blocking
                     if (zeroDataFrames === 60 && !iosCorsWarningShown) {
-                        const browserName = isIOS ? 'iOS Safari' : (isSafari ? 'Safari' : 'this browser');
-                        console.warn('⚠️ Safari CORS Restriction Detected ⚠️');
-                        console.warn('VU meters cannot access audio data due to Safari security policy.');
+                        const browserName = isIOS ? 'iOS (all browsers use WebKit)' : (isSafari ? 'Safari' : 'this browser');
+                        console.warn('⚠️ Safari/WebKit CORS Restriction Detected ⚠️');
+                        console.warn('VU meters cannot access audio data due to Safari/WebKit security policy.');
                         console.warn('Audio is playing normally, but Web Audio API is blocked from analyzing the stream.');
-                        console.warn('This is a known Safari limitation (both macOS and iOS) when using crossorigin="anonymous".');
-                        console.warn('VU meters work normally on Chrome, Firefox, and Edge.');
-                        console.warn('Browser:', browserName);
+                        if (isIOS) {
+                            console.warn('This affects ALL browsers on iOS/iPadOS (Apple requires all browsers to use WebKit).');
+                            console.warn('VU meters are not available on iOS - use desktop Chrome, Firefox, or Edge instead.');
+                        } else {
+                            console.warn('This is a known Safari limitation when using crossorigin="anonymous".');
+                            console.warn('VU meters work normally on Chrome, Firefox, and Edge (desktop and Android).');
+                        }
+                        console.warn('Detected browser:', browserName);
                         iosCorsWarningShown = true;
 
-                        // Hide VU meter on Safari since it won't work
+                        // Hide VU meter on Safari/WebKit since it won't work
                         vuMeter.style.display = 'none';
                         console.log('VU meter hidden - not supported on', browserName);
                     }
