@@ -184,6 +184,53 @@
             flex: 1;
             font-weight: normal;
         }
+        .vu-meter {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            display: none;
+        }
+        .vu-meter.visible {
+            display: block;
+        }
+        .vu-meter h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #ecf0f1;
+            font-size: 14px;
+        }
+        .vu-bars {
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 3px;
+            width: 40px;
+            height: 200px;
+            align-items: stretch;
+        }
+        .vu-bar {
+            flex: 1;
+            width: 100%;
+            min-height: 5px;
+            border-radius: 2px;
+            opacity: 0.3;
+            transition: opacity 0.1s ease;
+        }
+        /* Green bars (0-11) */
+        .vu-bar:nth-child(-n+12) {
+            background: #27ae60;
+        }
+        /* Yellow bars (12-16) */
+        .vu-bar:nth-child(n+13):nth-child(-n+17) {
+            background: #f39c12;
+        }
+        /* Red bars (17-20) */
+        .vu-bar:nth-child(n+18) {
+            background: #e74c3c;
+        }
+        .vu-bar.active {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -214,7 +261,7 @@
 
         <div id="status" class="status"></div>
 
-        <audio id="audioPlayer" controls>
+        <audio id="audioPlayer" controls crossorigin="anonymous">
             Your browser does not support the audio element.
         </audio>
 
@@ -273,6 +320,24 @@
                 <span class="metadata-value" id="metaAlbum">--</span>
             </div>
         </div>
+
+        <div id="vuMeter" class="vu-meter">
+            <h3>🎚️ Audio Levels</h3>
+            <div style="display: flex; gap: 30px; justify-content: center;">
+                <div style="text-align: center;">
+                    <div style="font-size: 12px; color: #ecf0f1; margin-bottom: 8px; opacity: 0.8;">L</div>
+                    <div class="vu-bars" id="vuBarsLeft">
+                        <!-- 20 LED bars will be created dynamically -->
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 12px; color: #ecf0f1; margin-bottom: 8px; opacity: 0.8;">R</div>
+                    <div class="vu-bars" id="vuBarsRight">
+                        <!-- 20 LED bars will be created dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -296,6 +361,9 @@
         const metaAlbum = document.getElementById('metaAlbum');
         const albumArtwork = document.getElementById('albumArtwork');
         const artworkImg = document.getElementById('artworkImg');
+        const vuMeter = document.getElementById('vuMeter');
+        const vuBarsLeft = document.getElementById('vuBarsLeft');
+        const vuBarsRight = document.getElementById('vuBarsRight');
 
         let lastBufferedBytes = 0;
         let lastBufferTime = 0;
@@ -305,6 +373,16 @@
         let artworkApiFailures = 0; // Track consecutive artwork API failures
         const MAX_ARTWORK_FAILURES = 3; // Stop after 3 consecutive failures
         let artworkCache = new Set(); // Track tracks we've already searched for (artist:title)
+
+        // Web Audio API for VU meter
+        let audioContext = null;
+        let analyserLeft = null;
+        let analyserRight = null;
+        let dataArrayLeft = null;
+        let dataArrayRight = null;
+        let animationId = null;
+        let sourceNode = null; // Track if we've already created the source
+        const NUM_BARS = 20;
         // Removed audioContext and audioSource - caused issues in Chrome
         // Audio plays through the audio element's default path instead
 
@@ -2247,6 +2325,178 @@
                     }
                 }
             }
+        });
+
+        // Initialize VU meter
+        function initVUMeter() {
+            try {
+                // Create LED bars for left channel
+                vuBarsLeft.innerHTML = '';
+                for (let i = 0; i < NUM_BARS; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'vu-bar';
+                    vuBarsLeft.appendChild(bar);
+                }
+
+                // Create LED bars for right channel
+                vuBarsRight.innerHTML = '';
+                for (let i = 0; i < NUM_BARS; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'vu-bar';
+                    vuBarsRight.appendChild(bar);
+                }
+                console.log('Created', NUM_BARS, 'VU meter bars for left and right channels');
+
+                // Create Web Audio API context (only once)
+                if (!audioContext) {
+                    console.log('Creating Web Audio API context...');
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                    // Create two analysers (one per channel)
+                    analyserLeft = audioContext.createAnalyser();
+                    analyserLeft.fftSize = 256;
+                    analyserLeft.smoothingTimeConstant = 0.8;
+
+                    analyserRight = audioContext.createAnalyser();
+                    analyserRight.fftSize = 256;
+                    analyserRight.smoothingTimeConstant = 0.8;
+
+                    const bufferLength = analyserLeft.frequencyBinCount;
+                    dataArrayLeft = new Uint8Array(bufferLength);
+                    dataArrayRight = new Uint8Array(bufferLength);
+
+                    // Only create MediaElementSource once per audio element
+                    if (!sourceNode) {
+                        console.log('Creating MediaElementSource and connecting stereo audio pipeline...');
+                        sourceNode = audioContext.createMediaElementSource(audioPlayer);
+
+                        // Create channel splitter to separate left and right
+                        const splitter = audioContext.createChannelSplitter(2);
+
+                        // Create merger to send audio to speakers
+                        const merger = audioContext.createChannelMerger(2);
+
+                        // Connect: source → splitter
+                        sourceNode.connect(splitter);
+
+                        // Connect: splitter → analysers
+                        splitter.connect(analyserLeft, 0); // Left channel (0) → left analyser
+                        splitter.connect(analyserRight, 1); // Right channel (1) → right analyser
+
+                        // Connect: splitter → merger → destination (for audio playback)
+                        splitter.connect(merger, 0, 0); // Left to left
+                        splitter.connect(merger, 1, 1); // Right to right
+                        merger.connect(audioContext.destination);
+
+                        console.log('Stereo audio pipeline connected: source → splitter → [analysers + merger] → destination');
+                    }
+
+                    console.log('VU meter initialized with Web Audio API (stereo)');
+                }
+
+                vuMeter.classList.add('visible');
+                console.log('VU meter visible, starting animation');
+                startVUAnimation();
+            } catch (error) {
+                console.error('Error initializing VU meter:', error);
+            }
+        }
+
+        // Animate VU meter
+        function startVUAnimation() {
+            if (!analyserLeft || !analyserRight) {
+                console.warn('Cannot start VU animation: analysers not initialized');
+                return;
+            }
+
+            console.log('Starting stereo VU animation loop');
+            let frameCount = 0;
+
+            function animate() {
+                animationId = requestAnimationFrame(animate);
+
+                // Get frequency data for left channel
+                analyserLeft.getByteFrequencyData(dataArrayLeft);
+                let sumLeft = 0;
+                for (let i = 0; i < dataArrayLeft.length; i++) {
+                    sumLeft += dataArrayLeft[i];
+                }
+                const averageVolumeLeft = sumLeft / dataArrayLeft.length;
+
+                // Get frequency data for right channel
+                analyserRight.getByteFrequencyData(dataArrayRight);
+                let sumRight = 0;
+                for (let i = 0; i < dataArrayRight.length; i++) {
+                    sumRight += dataArrayRight[i];
+                }
+                const averageVolumeRight = sumRight / dataArrayRight.length;
+
+                // Light up left channel bars (2x sensitivity)
+                const barsLeft = vuBarsLeft.children;
+                const barsToLightLeft = Math.min(NUM_BARS, Math.floor((averageVolumeLeft / 255) * NUM_BARS * 2));
+                for (let i = 0; i < NUM_BARS; i++) {
+                    if (i < barsToLightLeft) {
+                        barsLeft[i].classList.add('active');
+                    } else {
+                        barsLeft[i].classList.remove('active');
+                    }
+                }
+
+                // Light up right channel bars (2x sensitivity)
+                const barsRight = vuBarsRight.children;
+                const barsToLightRight = Math.min(NUM_BARS, Math.floor((averageVolumeRight / 255) * NUM_BARS * 2));
+                for (let i = 0; i < NUM_BARS; i++) {
+                    if (i < barsToLightRight) {
+                        barsRight[i].classList.add('active');
+                    } else {
+                        barsRight[i].classList.remove('active');
+                    }
+                }
+
+                // Log data on first 10 frames for debugging
+                if (frameCount < 10) {
+                    console.log('VU frame', frameCount, '- L:', averageVolumeLeft.toFixed(1), '(' + barsToLightLeft + ' bars) R:', averageVolumeRight.toFixed(1), '(' + barsToLightRight + ' bars)');
+                    frameCount++;
+                }
+            }
+
+            animate();
+        }
+
+        // Stop VU animation
+        function stopVUAnimation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            vuMeter.classList.remove('visible');
+        }
+
+        // Initialize VU meter when audio actually starts playing (after buffering)
+        audioPlayer.addEventListener('playing', () => {
+            console.log('Audio playing event triggered - audio is actually flowing');
+            if (audioContext && audioContext.state === 'suspended') {
+                console.log('Resuming suspended audio context...');
+                audioContext.resume();
+            }
+            if (!analyserLeft || !analyserRight) {
+                console.log('Analysers not initialized, calling initVUMeter()');
+                initVUMeter();
+            } else {
+                console.log('Analysers already exist, showing VU meter');
+                vuMeter.classList.add('visible');
+                startVUAnimation();
+            }
+        });
+
+        audioPlayer.addEventListener('pause', () => {
+            console.log('Audio paused, stopping VU animation');
+            stopVUAnimation();
+        });
+
+        audioPlayer.addEventListener('ended', () => {
+            console.log('Audio ended, stopping VU animation');
+            stopVUAnimation();
         });
 
         // Set initial volume

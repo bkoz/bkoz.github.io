@@ -87,7 +87,19 @@ FLAC parser:
 - Parses STREAMINFO metadata block for sample rate, channels, and bits per sample
 - Calculates uncompressed bit rate (lossless compression means variable compressed rate)
 
-**4. Metadata Extraction**
+**4. VU Meters**
+
+Real-time audio level visualization using Web Audio API:
+- **Vertical LED-style meters**: 20 bars per channel, bottom-to-top display
+- **Stereo channel splitting**: Separate left and right channel analysis
+- **Color coding**: Green (bars 1-12), Yellow (bars 13-17), Red (bars 18-20)
+- **Audio pipeline**: MediaElementSource → ChannelSplitter → [Left Analyser, Right Analyser] → ChannelMerger → Destination
+- **Real-time analysis**: AnalyserNode with FFT size 256, smoothing 0.8
+- **60fps animation**: requestAnimationFrame loop updates bar states
+- **2x sensitivity**: Volume multiplier for responsive visual feedback
+- **CORS requirement**: Requires `crossorigin="anonymous"` on audio element
+
+**5. Metadata Extraction**
 
 Multiple extraction paths for track information (title, artist, album, station, genre):
 - **HLS URL-Encoded Metadata**: AudioCDN/KNKX streams encode metadata as base64 protobuf in segment URLs
@@ -98,7 +110,7 @@ Multiple extraction paths for track information (title, artist, album, station, 
 
 Updates every 5 seconds to catch song changes.
 
-**5. Album Artwork**
+**6. Album Artwork**
 
 Album artwork is displayed using a two-tier approach:
 - **ID3 APIC Frames (Primary)**: Extracts embedded artwork from HLS stream segments
@@ -179,6 +191,7 @@ Comprehensive `console.log()` statements throughout for debugging:
   - Final display value with source attribution (URL/parsed/estimated)
 - **Metadata Extraction**: URL-encoded protobuf decoding, ID3 parsing, ICY metadata blocks, station/genre
 - **Album Artwork**: APIC frame parsing, MusicBrainz API searches, cache hits/misses, artwork display
+- **VU Meters**: Initialization, audio pipeline connection, stereo channel analysis, frame-by-frame levels
 - **Validation Warnings**: Channel inconsistencies, invalid bit rates, parsing failures
 - **HLS Manifest**: Playlist parsing, segment selection (most recent), nested manifest detection
 
@@ -238,7 +251,12 @@ Update `commonBitRates` array in `detectAudioFormat()`.
 8. **Station and genre metadata**:
    - "Station name (ICY): ..." / "Genre (ICY): ..." = from ICY headers
    - "Genre (ID3): ..." / "Genre (ID3 TCON): ..." = from ID3 tags
-9. **Common warnings and their meaning**:
+9. **VU Meters**:
+   - "Created 20 VU meter bars for left and right channels" = bars initialized
+   - "Stereo audio pipeline connected: source → splitter → [analysers + merger] → destination" = Web Audio API setup
+   - "VU frame 0 - L: 85.1 (12 bars) R: 83.2 (11 bars)" = per-channel levels and active bars
+   - "MediaElementAudioSource outputs zeroes due to CORS access restrictions" = stream lacks CORS headers
+10. **Common warnings and their meaning**:
    - "AAC bit rate outside valid range (8-500 kbps) - ignoring" = invalid data, not real AAC
    - "High variance in AAC bit rate calculation - may be unreliable" = inconsistent frame data
    - "Segment appears to be another manifest, not audio data" = nested HLS playlist detected
@@ -251,6 +269,11 @@ Update `commonBitRates` array in `detectAudioFormat()`.
   - All preset streams use HTTPS URLs to prevent this issue
   - Custom HTTP stream URLs will not work when the page is served over HTTPS
   - Test locally with `file://` or HTTP server, deploy with HTTPS streams only
+- **VU Meter CORS Requirement**: VU meters require CORS-enabled streams for Web Audio API analysis
+  - Audio element uses `crossorigin="anonymous"` attribute
+  - Streams without CORS headers will play but VU meters show zeros
+  - All preset streams are CORS-enabled and work correctly
+  - Console shows: "MediaElementAudioSource outputs zeroes due to CORS access restrictions"
 - **AAC Bit Rate Calculation**: Frame-based calculation can be noisy/unreliable due to variable frame lengths
   - Standard deviation is calculated and logged to identify high variance
   - Falls back to URL patterns, ICY headers, or ID3 tags when available

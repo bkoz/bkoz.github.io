@@ -5,6 +5,7 @@ A standalone HTML5 audio stream player with advanced codec detection and metadat
 ## Key Features
 
 ### Recent Improvements
+- **VU Meters** - Vertical LED-style audio level meters for left and right channels with real-time animation
 - **Album Artwork Display** - ID3 APIC frames with MusicBrainz API fallback for cover art
 - **Rate Limit Protection** - Caches searched tracks and stops API queries after 3 consecutive failures to prevent rate limiting
 - **Station & Genre Metadata** - Displays station name and genre from ICY headers and ID3 tags
@@ -62,6 +63,12 @@ Two-tier approach for displaying album cover art:
   - Album artwork (up to 200x200px)
   - Station name and genre
   - Track title, artist, and album
+- VU Meters - Vertical LED-style audio level indicators:
+  - Separate left and right channel displays
+  - 20 LED bars per channel (bottom to top)
+  - Color-coded levels: Green (safe) → Yellow (moderate) → Red (peaks)
+  - 2x sensitivity for responsive feedback
+  - Auto show/hide with playback state
 
 ## Usage
 
@@ -178,7 +185,35 @@ Every 5 seconds, the player:
 
 This ensures track information stays current as songs change, typically with 2-5 second latency from actual broadcast.
 
-#### 5. Error Handling & Data Validation
+#### 5. VU Meters (Audio Level Visualization)
+
+**Web Audio API Implementation:**
+- Uses `AnalyserNode` to extract frequency data from audio stream
+- Channel splitter separates stereo audio into left and right
+- Dual analysers process each channel independently
+- Frequency data averaged and mapped to 20 LED bars per channel
+- Runs at 60fps via `requestAnimationFrame`
+
+**Audio Pipeline:**
+```
+Audio Element → MediaElementSource → ChannelSplitter → [Left Analyser, Right Analyser] → ChannelMerger → Destination (Speakers)
+```
+
+**Visual Design:**
+- Vertical bars (200px height, 40px width per channel)
+- Bottom 12 bars: Green (#27ae60) - safe levels
+- Middle 5 bars: Yellow (#f39c12) - moderate levels
+- Top 3 bars: Red (#e74c3c) - peak levels
+- Inactive bars show dim (30% opacity), active bars bright (100% opacity)
+- 2x sensitivity multiplier for responsive visual feedback
+
+**CORS Requirement:**
+- Audio element uses `crossorigin="anonymous"` attribute
+- Required for Web Audio API to analyze cross-origin streams
+- Radio Paradise and other CORS-enabled streams work properly
+- Streams without CORS headers will play but VU meters show zeros
+
+#### 6. Error Handling & Data Validation
 
 **CORS Handling:**
 - Gracefully handles CORS restrictions on ICY metadata headers
@@ -251,8 +286,16 @@ The player uses a **priority chain** to detect stream properties, trying multipl
 
 ## Technical Details
 
-### Web Audio API Removed
-Early versions used `MediaElementSource` for channel detection, but this disconnected the audio element from browser output, causing no sound in Chrome. The audio now plays through the default browser path. Channel detection relies on ICY/ID3 tags and frame parsing instead.
+### Web Audio API for VU Meters
+The VU meters use Web Audio API with a carefully designed audio pipeline:
+- `MediaElementSource` connects to both analysers AND the audio destination via `ChannelSplitter` and `ChannelMerger`
+- `ChannelSplitter` separates stereo audio into left and right channels
+- Two `AnalyserNode` instances process each channel independently for real-time frequency analysis
+- `ChannelMerger` recombines audio for speaker output
+- This allows real-time visualization without interrupting audio playback
+- Requires `crossorigin="anonymous"` attribute on the audio element for CORS-enabled streams
+
+**Note:** Channel detection for codec information relies on ICY/ID3 tags and frame parsing, not Web Audio API, to avoid the audio disconnection issue found in early versions.
 
 ### URL Pattern Heuristics
 The player extracts hints from URL patterns:
@@ -285,6 +328,7 @@ Comprehensive `console.log()` statements throughout for debugging:
   - Final display value with source attribution
 - **Metadata Extraction** - URL-encoded protobuf decoding, ID3 parsing, ICY metadata, station/genre
 - **Album Artwork** - APIC frame parsing, MusicBrainz API searches, cache hits/misses, artwork display source
+- **VU Meters** - Web Audio API initialization, stereo channel splitting, real-time level analysis per channel
 - **Validation Warnings** - Channel inconsistencies, invalid bit rates, parsing failures, album deduplication
 - **HLS Manifest** - Playlist parsing, segment selection, nested manifest detection
 
@@ -333,7 +377,12 @@ Keep these logs when making changes - they're essential for diagnosing stream co
 9. **Station and Genre:**
    - "Station name (ICY): ..." / "Genre (ICY): ..." - from ICY headers
    - "Genre (ID3): ..." - from ID3 TCON tags
-10. **Validation Warnings:**
+10. **VU Meters:**
+   - "Created 20 VU meter bars for left and right channels" - bars initialized
+   - "Stereo audio pipeline connected: source → splitter → [analysers + merger] → destination" - Web Audio API setup
+   - "VU frame 0 - L: 85.1 (12 bars) R: 83.2 (11 bars)" - per-channel levels and active bars
+   - "MediaElementAudioSource outputs zeroes due to CORS access restrictions" - stream lacks CORS headers, VU meters won't work
+11. **Validation Warnings:**
    - "High variance in AAC bit rate calculation - may be unreliable"
    - "Only X/Y frames had valid bit rates" - some AAC frames failed calculation
    - "Album matches title, displaying as unknown" - stream duplicates title in album field
@@ -344,6 +393,11 @@ Keep these logs when making changes - they're essential for diagnosing stream co
   - All preset streams use HTTPS to avoid this issue
   - Custom HTTP URLs will not work on HTTPS-hosted sites
   - Solution: Use HTTPS stream URLs or host on HTTP (local testing)
+- **VU Meter CORS Requirement**: VU meters require CORS-enabled audio streams
+  - Audio element uses `crossorigin="anonymous"` to enable Web Audio API analysis
+  - Streams without proper CORS headers will play audio but VU meters show zero
+  - All preset streams support CORS and VU meters work correctly
+  - Console warning: "MediaElementAudioSource outputs zeroes due to CORS access restrictions"
 - **AAC Bit Rate Calculation**: Frame-based calculation can be noisy/unreliable
   - Standard deviation logged to help identify variance issues
   - Falls back to URL/ICY/ID3 sources when available
