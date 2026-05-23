@@ -130,8 +130,15 @@ Album artwork is displayed using a two-tier approach:
 
 ## Important Implementation Details
 
-### Web Audio API Removed
-Early versions used `MediaElementSource` for channel detection, but this **disconnected the audio element from browser output**, causing no sound in Chrome. The audio now plays through the default browser path. Channel detection relies on ICY/ID3 tags and frame parsing instead.
+### Web Audio API for VU Meters
+The VU meters use Web Audio API with `MediaElementSource` connected to a stereo audio pipeline:
+- **Critical setup requirement**: `MediaElementSource` must be created **during user gesture** (button click) for iOS/Safari compatibility
+- **Audio routing**: source → splitter → [analysers + merger] → destination (audio plays through speakers normally)
+- **Safari CORS restriction**: Safari (both macOS and iOS) blocks Web Audio API data access when `crossorigin="anonymous"` is set
+  - This is a Safari security policy, not a bug in the player
+  - VU meters automatically detect this (60 frames of zeros) and hide themselves on Safari
+  - Works perfectly on Chrome, Firefox, and Edge (all platforms)
+  - Channel detection relies on ICY/ID3 tags and frame parsing instead of Web Audio API
 
 ### URL-Encoded Metadata (AudioCDN/KNKX)
 Some HLS providers (like AudioCDN used by KNKX) encode metadata directly in segment URLs as base64-encoded protobuf:
@@ -252,10 +259,14 @@ Update `commonBitRates` array in `detectAudioFormat()`.
    - "Station name (ICY): ..." / "Genre (ICY): ..." = from ICY headers
    - "Genre (ID3): ..." / "Genre (ID3 TCON): ..." = from ID3 tags
 9. **VU Meters**:
+   - "Browser detection - isSafari: true/false isIOS: true/false" = browser compatibility check
    - "Created 20 VU meter bars for left and right channels" = bars initialized
    - "Stereo audio pipeline connected: source → splitter → [analysers + merger] → destination" = Web Audio API setup
-   - "VU frame 0 - L: 85.1 (12 bars) R: 83.2 (11 bars)" = per-channel levels and active bars
-   - "MediaElementAudioSource outputs zeroes due to CORS access restrictions" = stream lacks CORS headers
+   - "VU frame 0 - L: 85.1 (12 bars) R: 83.2 (11 bars)" = per-channel levels and active bars (working correctly)
+   - "Raw FREQUENCY data sample - Left[0-9]: 0 0 0 0..." = Safari CORS blocking (all zeros)
+   - "⚠️ Safari CORS Restriction Detected ⚠️" = VU meters auto-hiding on Safari browsers
+   - "VU meter hidden - not supported on Safari" = auto-hide triggered
+   - **If VU meters don't work**: Check browser - Safari (macOS/iOS) blocks Web Audio API data access; use Chrome/Firefox/Edge instead
 10. **Common warnings and their meaning**:
    - "AAC bit rate outside valid range (8-500 kbps) - ignoring" = invalid data, not real AAC
    - "High variance in AAC bit rate calculation - may be unreliable" = inconsistent frame data
@@ -272,7 +283,15 @@ Update `commonBitRates` array in `detectAudioFormat()`.
 - **VU Meter CORS Requirement**: VU meters require CORS-enabled streams for Web Audio API analysis
   - Audio element uses `crossorigin="anonymous"` attribute
   - Streams without CORS headers will play but VU meters show zeros
-  - All preset streams are CORS-enabled and work correctly
+  - All preset streams are CORS-enabled and work correctly on **Chrome, Firefox, and Edge**
+  - **Safari Limitation (macOS and iOS)**: VU meters do NOT work in Safari browsers
+    - Safari blocks Web Audio API access to audio data when `crossorigin="anonymous"` is set
+    - This is a known Safari security policy (both desktop and mobile), not a bug in the player
+    - Audio plays normally, but analysers receive zeros (no waveform/frequency data)
+    - VU meter automatically hides after detecting 60 frames of zeros (~1 second)
+    - Console shows warning: "⚠️ Safari CORS Restriction Detected ⚠️"
+    - **Works perfectly on:** Chrome, Firefox, Edge (all platforms)
+    - **Does NOT work on:** Safari (macOS), Safari (iOS/iPadOS)
   - Console shows: "MediaElementAudioSource outputs zeroes due to CORS access restrictions"
 - **AAC Bit Rate Calculation**: Frame-based calculation can be noisy/unreliable due to variable frame lengths
   - Standard deviation is calculated and logged to identify high variance

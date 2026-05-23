@@ -375,6 +375,11 @@
         let artworkCache = new Set(); // Track tracks we've already searched for (artist:title)
 
         // Web Audio API for VU meter
+        // Detect Safari browser (both macOS and iOS)
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        console.log('Browser detection - isSafari:', isSafari, 'isIOS:', isIOS);
+
         let audioContext = null;
         let analyserLeft = null;
         let analyserRight = null;
@@ -382,6 +387,9 @@
         let dataArrayRight = null;
         let animationId = null;
         let sourceNode = null; // Track if we've already created the source
+        let pipelineConnected = false; // Track if audio pipeline has been connected
+        let zeroDataFrames = 0; // Track consecutive frames with zero audio data
+        let iosCorsWarningShown = false; // Only show iOS CORS warning once
         const NUM_BARS = 20;
         // Removed audioContext and audioSource - caused issues in Chrome
         // Audio plays through the audio element's default path instead
@@ -404,10 +412,27 @@
                 return;
             }
 
+            // Create AudioContext during user interaction (required for iOS/Safari)
+            // This MUST happen during the click event, not later in async callbacks
+            createAudioContext();
+
+            // Resume AudioContext if suspended (required for iOS/Safari)
+            if (audioContext && audioContext.state === 'suspended') {
+                console.log('Resuming suspended AudioContext on user interaction (iOS/Safari requirement)');
+                audioContext.resume().then(() => {
+                    console.log('AudioContext resumed successfully, state:', audioContext.state);
+                }).catch(err => {
+                    console.error('Failed to resume AudioContext:', err);
+                });
+            }
+
             // Reset metadata fetch failure flag for new stream
             metadataFetchFailed = false;
             artworkApiFailures = 0; // Reset artwork API failure counter
             artworkCache.clear(); // Clear artwork search cache for new stream
+            zeroDataFrames = 0; // Reset iOS CORS detection for new stream
+            iosCorsWarningShown = false; // Allow warning to show again for new stream
+            vuMeter.style.display = ''; // Re-show VU meter (will auto-hide if iOS blocks)
 
             // Reset metadata display
             metaStation.textContent = '--';
@@ -418,8 +443,64 @@
             albumArtwork.style.display = 'none';
             artworkImg.src = '';
 
+            // iOS CRITICAL: Set src FIRST, then create MediaElementSource during same gesture
             audioPlayer.src = url;
             audioPlayer.load();
+
+            // iOS CRITICAL: Create MediaElementSource AND connect pipeline during user gesture
+            // MUST happen after src is set but during the same click event!
+            if (audioContext && !sourceNode) {
+                try {
+                    console.log('Creating MediaElementSource during user click (iOS requirement, AFTER src set)');
+                    sourceNode = audioContext.createMediaElementSource(audioPlayer);
+                    console.log('MediaElementSource created successfully during user interaction');
+
+                    // Create analysers if they don't exist
+                    if (!analyserLeft || !analyserRight) {
+                        console.log('Creating analysers during user click...');
+                        analyserLeft = audioContext.createAnalyser();
+                        analyserLeft.fftSize = 256;
+                        analyserLeft.smoothingTimeConstant = 0.8;
+
+                        analyserRight = audioContext.createAnalyser();
+                        analyserRight.fftSize = 256;
+                        analyserRight.smoothingTimeConstant = 0.8;
+
+                        const bufferLength = analyserLeft.frequencyBinCount;
+                        dataArrayLeft = new Uint8Array(bufferLength);
+                        dataArrayRight = new Uint8Array(bufferLength);
+                        console.log('Analysers created');
+                    }
+
+                    // Connect pipeline during user click (iOS requirement)
+                    if (!pipelineConnected) {
+                        console.log('Connecting stereo audio pipeline during user click (iOS requirement)...');
+
+                        // Create channel splitter to separate left and right
+                        const splitter = audioContext.createChannelSplitter(2);
+
+                        // Create merger to send audio to speakers
+                        const merger = audioContext.createChannelMerger(2);
+
+                        // Connect: source → splitter
+                        sourceNode.connect(splitter);
+
+                        // Connect: splitter → analysers
+                        splitter.connect(analyserLeft, 0); // Left channel (0) → left analyser
+                        splitter.connect(analyserRight, 1); // Right channel (1) → right analyser
+
+                        // Connect: splitter → merger → destination (for audio playback)
+                        splitter.connect(merger, 0, 0); // Left to left
+                        splitter.connect(merger, 1, 1); // Right to right
+                        merger.connect(audioContext.destination);
+
+                        pipelineConnected = true;
+                        console.log('Stereo audio pipeline connected during user click: source → splitter → [analysers + merger] → destination');
+                    }
+                } catch (error) {
+                    console.error('Failed to create MediaElementSource or connect pipeline:', error);
+                }
+            }
             audioPlayer.play()
                 .then(() => {
                     showStatus('Playing: ' + url, 'playing');
@@ -2327,71 +2408,42 @@
             }
         });
 
-        // Initialize VU meter
+        // Create AudioContext early (during user interaction for iOS)
+        function createAudioContext() {
+            if (!audioContext) {
+                console.log('Creating Web Audio API context during user interaction...');
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('AudioContext created, initial state:', audioContext.state);
+            }
+        }
+
+        // Initialize VU meter UI (pipeline already connected in loadStream)
         function initVUMeter() {
             try {
-                // Create LED bars for left channel
-                vuBarsLeft.innerHTML = '';
-                for (let i = 0; i < NUM_BARS; i++) {
-                    const bar = document.createElement('div');
-                    bar.className = 'vu-bar';
-                    vuBarsLeft.appendChild(bar);
-                }
-
-                // Create LED bars for right channel
-                vuBarsRight.innerHTML = '';
-                for (let i = 0; i < NUM_BARS; i++) {
-                    const bar = document.createElement('div');
-                    bar.className = 'vu-bar';
-                    vuBarsRight.appendChild(bar);
-                }
-                console.log('Created', NUM_BARS, 'VU meter bars for left and right channels');
-
-                // Create Web Audio API context (only once)
-                if (!audioContext) {
-                    console.log('Creating Web Audio API context...');
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-                    // Create two analysers (one per channel)
-                    analyserLeft = audioContext.createAnalyser();
-                    analyserLeft.fftSize = 256;
-                    analyserLeft.smoothingTimeConstant = 0.8;
-
-                    analyserRight = audioContext.createAnalyser();
-                    analyserRight.fftSize = 256;
-                    analyserRight.smoothingTimeConstant = 0.8;
-
-                    const bufferLength = analyserLeft.frequencyBinCount;
-                    dataArrayLeft = new Uint8Array(bufferLength);
-                    dataArrayRight = new Uint8Array(bufferLength);
-
-                    // Only create MediaElementSource once per audio element
-                    if (!sourceNode) {
-                        console.log('Creating MediaElementSource and connecting stereo audio pipeline...');
-                        sourceNode = audioContext.createMediaElementSource(audioPlayer);
-
-                        // Create channel splitter to separate left and right
-                        const splitter = audioContext.createChannelSplitter(2);
-
-                        // Create merger to send audio to speakers
-                        const merger = audioContext.createChannelMerger(2);
-
-                        // Connect: source → splitter
-                        sourceNode.connect(splitter);
-
-                        // Connect: splitter → analysers
-                        splitter.connect(analyserLeft, 0); // Left channel (0) → left analyser
-                        splitter.connect(analyserRight, 1); // Right channel (1) → right analyser
-
-                        // Connect: splitter → merger → destination (for audio playback)
-                        splitter.connect(merger, 0, 0); // Left to left
-                        splitter.connect(merger, 1, 1); // Right to right
-                        merger.connect(audioContext.destination);
-
-                        console.log('Stereo audio pipeline connected: source → splitter → [analysers + merger] → destination');
+                // Create LED bars for left channel (only if not already created)
+                if (vuBarsLeft.children.length === 0) {
+                    vuBarsLeft.innerHTML = '';
+                    for (let i = 0; i < NUM_BARS; i++) {
+                        const bar = document.createElement('div');
+                        bar.className = 'vu-bar';
+                        vuBarsLeft.appendChild(bar);
                     }
 
-                    console.log('VU meter initialized with Web Audio API (stereo)');
+                    // Create LED bars for right channel
+                    vuBarsRight.innerHTML = '';
+                    for (let i = 0; i < NUM_BARS; i++) {
+                        const bar = document.createElement('div');
+                        bar.className = 'vu-bar';
+                        vuBarsRight.appendChild(bar);
+                    }
+                    console.log('Created', NUM_BARS, 'VU meter bars for left and right channels');
+                }
+
+                // Verify pipeline is connected
+                if (pipelineConnected && analyserLeft && analyserRight) {
+                    console.log('VU meter UI ready, pipeline already connected');
+                } else {
+                    console.warn('VU meter UI created but pipeline not connected - check loadStream()');
                 }
 
                 vuMeter.classList.add('visible');
@@ -2409,47 +2461,112 @@
                 return;
             }
 
-            console.log('Starting stereo VU animation loop');
+            if (!audioContext) {
+                console.warn('Cannot start VU animation: AudioContext not initialized');
+                return;
+            }
+
+            console.log('Starting stereo VU animation loop, AudioContext state:', audioContext.state);
             let frameCount = 0;
 
             function animate() {
                 animationId = requestAnimationFrame(animate);
 
+                // Check AudioContext state on iOS (it might suspend)
+                if (audioContext.state !== 'running') {
+                    if (frameCount < 5) {
+                        console.warn('AudioContext not running, state:', audioContext.state);
+                    }
+                    // Try to resume it
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                    return; // Skip this frame
+                }
+
                 // Get frequency data for left channel
                 analyserLeft.getByteFrequencyData(dataArrayLeft);
                 let sumLeft = 0;
+                let maxLeft = 0;
                 for (let i = 0; i < dataArrayLeft.length; i++) {
                     sumLeft += dataArrayLeft[i];
+                    if (dataArrayLeft[i] > maxLeft) maxLeft = dataArrayLeft[i];
                 }
                 const averageVolumeLeft = sumLeft / dataArrayLeft.length;
 
                 // Get frequency data for right channel
                 analyserRight.getByteFrequencyData(dataArrayRight);
                 let sumRight = 0;
+                let maxRight = 0;
                 for (let i = 0; i < dataArrayRight.length; i++) {
                     sumRight += dataArrayRight[i];
+                    if (dataArrayRight[i] > maxRight) maxRight = dataArrayRight[i];
                 }
                 const averageVolumeRight = sumRight / dataArrayRight.length;
+
+                // Diagnostic: log raw data on first few frames to debug iOS CORS issues
+                if (frameCount < 3) {
+                    console.log('Raw FREQUENCY data sample - Left[0-9]:',
+                        dataArrayLeft[0], dataArrayLeft[1], dataArrayLeft[2], dataArrayLeft[3], dataArrayLeft[4],
+                        dataArrayLeft[5], dataArrayLeft[6], dataArrayLeft[7], dataArrayLeft[8], dataArrayLeft[9],
+                        'Right[0-9]:',
+                        dataArrayRight[0], dataArrayRight[1], dataArrayRight[2], dataArrayRight[3], dataArrayRight[4],
+                        dataArrayRight[5], dataArrayRight[6], dataArrayRight[7], dataArrayRight[8], dataArrayRight[9]);
+                    console.log('Max value - Left:', maxLeft, 'Right:', maxRight);
+                    console.log('Audio element paused:', audioPlayer.paused, 'volume:', audioPlayer.volume, 'currentTime:', audioPlayer.currentTime.toFixed(2));
+                    console.log('AudioContext state:', audioContext.state, 'sampleRate:', audioContext.sampleRate);
+                }
+
+                // Detect Safari CORS blocking (all zeros even while audio playing)
+                if (maxLeft === 0 && maxRight === 0 && !audioPlayer.paused && audioPlayer.currentTime > 0.5) {
+                    zeroDataFrames++;
+                    // After 60 frames (~1 second) of zeros while audio is playing, it's Safari CORS blocking
+                    if (zeroDataFrames === 60 && !iosCorsWarningShown) {
+                        const browserName = isIOS ? 'iOS Safari' : (isSafari ? 'Safari' : 'this browser');
+                        console.warn('⚠️ Safari CORS Restriction Detected ⚠️');
+                        console.warn('VU meters cannot access audio data due to Safari security policy.');
+                        console.warn('Audio is playing normally, but Web Audio API is blocked from analyzing the stream.');
+                        console.warn('This is a known Safari limitation (both macOS and iOS) when using crossorigin="anonymous".');
+                        console.warn('VU meters work normally on Chrome, Firefox, and Edge.');
+                        console.warn('Browser:', browserName);
+                        iosCorsWarningShown = true;
+
+                        // Hide VU meter on Safari since it won't work
+                        vuMeter.style.display = 'none';
+                        console.log('VU meter hidden - not supported on', browserName);
+                    }
+                } else if (maxLeft > 0 || maxRight > 0) {
+                    // Reset counter if we get real data
+                    zeroDataFrames = 0;
+                }
 
                 // Light up left channel bars (2x sensitivity)
                 const barsLeft = vuBarsLeft.children;
                 const barsToLightLeft = Math.min(NUM_BARS, Math.floor((averageVolumeLeft / 255) * NUM_BARS * 2));
-                for (let i = 0; i < NUM_BARS; i++) {
-                    if (i < barsToLightLeft) {
-                        barsLeft[i].classList.add('active');
-                    } else {
-                        barsLeft[i].classList.remove('active');
+
+                // Safety check: ensure bars exist before accessing them
+                if (barsLeft.length >= NUM_BARS) {
+                    for (let i = 0; i < NUM_BARS; i++) {
+                        if (i < barsToLightLeft) {
+                            barsLeft[i].classList.add('active');
+                        } else {
+                            barsLeft[i].classList.remove('active');
+                        }
                     }
                 }
 
                 // Light up right channel bars (2x sensitivity)
                 const barsRight = vuBarsRight.children;
                 const barsToLightRight = Math.min(NUM_BARS, Math.floor((averageVolumeRight / 255) * NUM_BARS * 2));
-                for (let i = 0; i < NUM_BARS; i++) {
-                    if (i < barsToLightRight) {
-                        barsRight[i].classList.add('active');
-                    } else {
-                        barsRight[i].classList.remove('active');
+
+                // Safety check: ensure bars exist before accessing them
+                if (barsRight.length >= NUM_BARS) {
+                    for (let i = 0; i < NUM_BARS; i++) {
+                        if (i < barsToLightRight) {
+                            barsRight[i].classList.add('active');
+                        } else {
+                            barsRight[i].classList.remove('active');
+                        }
                     }
                 }
 
@@ -2475,18 +2592,20 @@
         // Initialize VU meter when audio actually starts playing (after buffering)
         audioPlayer.addEventListener('playing', () => {
             console.log('Audio playing event triggered - audio is actually flowing');
-            if (audioContext && audioContext.state === 'suspended') {
-                console.log('Resuming suspended audio context...');
-                audioContext.resume();
+            if (audioContext) {
+                console.log('AudioContext state:', audioContext.state);
+                if (audioContext.state === 'suspended') {
+                    console.log('Resuming suspended AudioContext...');
+                    audioContext.resume().then(() => {
+                        console.log('AudioContext resumed, new state:', audioContext.state);
+                    }).catch(err => {
+                        console.error('Failed to resume AudioContext:', err);
+                    });
+                }
             }
-            if (!analyserLeft || !analyserRight) {
-                console.log('Analysers not initialized, calling initVUMeter()');
-                initVUMeter();
-            } else {
-                console.log('Analysers already exist, showing VU meter');
-                vuMeter.classList.add('visible');
-                startVUAnimation();
-            }
+            // Always call initVUMeter to ensure UI bars are created
+            // (it checks if they already exist and skips creation if so)
+            initVUMeter();
         });
 
         audioPlayer.addEventListener('pause', () => {
@@ -2497,6 +2616,18 @@
         audioPlayer.addEventListener('ended', () => {
             console.log('Audio ended, stopping VU animation');
             stopVUAnimation();
+        });
+
+        // CORS and error detection
+        audioPlayer.addEventListener('error', (e) => {
+            console.error('Audio element error:', e, 'error code:', audioPlayer.error ? audioPlayer.error.code : 'unknown');
+            if (audioPlayer.error) {
+                console.error('Error message:', audioPlayer.error.message);
+            }
+        });
+
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            console.log('Audio metadata loaded - CORS check: crossOrigin =', audioPlayer.crossOrigin);
         });
 
         // Set initial volume
