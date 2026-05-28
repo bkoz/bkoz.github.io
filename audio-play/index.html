@@ -1155,7 +1155,7 @@
             }
         }
 
-        // Fetch album artwork from external API (MusicBrainz Cover Art Archive)
+        // Fetch album artwork from external APIs (iTunes → MusicBrainz)
         async function fetchArtworkFromAPI(artist, title) {
             if (!artist || !title) {
                 console.log('Cannot fetch artwork without artist and title');
@@ -1189,6 +1189,33 @@
             }
 
             try {
+                // Try iTunes Search API first (faster, no auth required, generous limits)
+                console.log('Searching for artwork via iTunes API:', artist, '-', title);
+                const itunesQuery = encodeURIComponent(`${artist} ${title}`);
+                const itunesUrl = `https://itunes.apple.com/search?term=${itunesQuery}&entity=song&limit=1`;
+
+                const itunesResponse = await fetch(itunesUrl);
+
+                if (itunesResponse.ok) {
+                    const itunesData = await itunesResponse.json();
+
+                    if (itunesData.results && itunesData.results.length > 0) {
+                        const result = itunesData.results[0];
+                        // iTunes returns multiple sizes: artworkUrl30, artworkUrl60, artworkUrl100
+                        // We can request larger sizes by replacing the size in the URL
+                        if (result.artworkUrl100) {
+                            // Request 600x600 version for better quality
+                            const artworkUrl = result.artworkUrl100.replace('100x100', '600x600');
+                            console.log('Found artwork from iTunes:', result.trackName, 'by', result.artistName);
+                            artworkApiFailures = 0; // Reset counter on success
+                            return artworkUrl;
+                        }
+                    }
+                }
+
+                console.log('iTunes API found no results, trying MusicBrainz...');
+
+                // Fallback to MusicBrainz Cover Art Archive
                 console.log('Searching for artwork via MusicBrainz API:', artist, '-', title);
 
                 // Search MusicBrainz for the recording

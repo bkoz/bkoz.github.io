@@ -112,17 +112,22 @@ Updates every 5 seconds to catch song changes.
 
 **6. Album Artwork**
 
-Album artwork is displayed using a two-tier approach:
+Album artwork is displayed using a three-tier approach:
 - **ID3 APIC Frames (Primary)**: Extracts embedded artwork from HLS stream segments
   - Parses APIC (Attached Picture) frames in ID3v2 tags
   - Converts binary image data to base64 data URLs
   - Works offline, most reliable for streams that include it (SomaFM, some HLS)
-- **MusicBrainz API (Fallback)**: Queries external services when embedded artwork not found
+- **iTunes Search API (Secondary)**: Fast external lookup when embedded artwork not found
+  - Searches Apple's iTunes catalog using artist + title metadata
+  - Returns high-quality artwork (600x600 upscaled from 100x100 URLs)
+  - Free, no API key required, generous rate limits
+  - Faster than MusicBrainz and covers most commercial music
+- **MusicBrainz API (Tertiary)**: Fallback for tracks not in iTunes catalog
   - Searches MusicBrainz database using artist + title metadata
   - Fetches 250px cover art from Cover Art Archive
   - Free, no API key required
-  - Used for Radio Paradise, KNKX, and streams without embedded artwork
-  - **Rate limit protection**:
+  - Used for indie/obscure tracks not in iTunes
+  - **Rate limit protection** (applies to both external APIs):
     - Caches searched tracks (artist:title) to prevent duplicate API calls
     - Stops queries after 3 consecutive failures
     - Resets on success or new stream
@@ -198,7 +203,7 @@ Comprehensive `console.log()` statements throughout for debugging:
   - FLAC uncompressed rate estimation from sample rate/channels/bits
   - Final display value with source attribution (URL/parsed/estimated)
 - **Metadata Extraction**: URL-encoded protobuf decoding, ID3 parsing, ICY metadata blocks, station/genre
-- **Album Artwork**: APIC frame parsing, MusicBrainz API searches, cache hits/misses, artwork display
+- **Album Artwork**: APIC frame parsing, iTunes API searches, MusicBrainz API fallback, cache hits/misses, artwork display
 - **VU Meters**: Initialization, audio pipeline connection, stereo channel analysis, frame-by-frame levels
 - **Validation Warnings**: Channel inconsistencies, invalid bit rates, parsing failures
 - **HLS Manifest**: Playlist parsing, segment selection (most recent), nested manifest detection
@@ -249,9 +254,12 @@ Update `commonBitRates` array in `detectAudioFormat()`.
    - "AAC ADTS channel config: X → Y channels" shows raw ADTS header decoding
 7. **Album artwork**:
    - "Found APIC artwork, type: X MIME: image/jpeg size: Y bytes" = embedded ID3 artwork found
-   - "Searching for artwork via MusicBrainz API: Artist - Title" = API fallback search
+   - "Searching for artwork via iTunes API: Artist - Title" = iTunes API search (primary external source)
+   - "Found artwork from iTunes: Track by Artist" = iTunes API successfully returned artwork
+   - "iTunes API found no results, trying MusicBrainz..." = fallback to secondary API
+   - "Searching for artwork via MusicBrainz API: Artist - Title" = MusicBrainz fallback search
    - "Artwork already searched for this track, skipping API call" = cache hit, preventing duplicate query
-   - "Found artwork from Cover Art Archive" = API successfully returned artwork
+   - "Found artwork from Cover Art Archive" = MusicBrainz API successfully returned artwork
    - "Displaying ID3 album artwork" / "Displaying artwork from API" = source of displayed artwork
    - "Artwork API failures: X/3" = failure counter tracking for rate limit protection
    - "Artwork API disabled after 3 consecutive failures (rate limit protection)" = API queries stopped
@@ -320,8 +328,10 @@ Update `commonBitRates` array in `detectAudioFormat()`.
   - Player detects when album matches title and displays "--" instead
   - Common with radio streams that don't have actual album information
   - Applies to all metadata sources (ID3, ICY, URL-encoded, SomaFM API)
-- **Album Artwork API Rate Limiting**: MusicBrainz API fallback has built-in protection
+- **Album Artwork API Rate Limiting**: External APIs (iTunes + MusicBrainz) have built-in protection
   - Each track (artist:title combination) is only searched once per session
+  - iTunes API tried first (faster, better coverage for commercial music)
+  - MusicBrainz fallback for tracks not in iTunes catalog
   - Stops queries after 3 consecutive failures to prevent rate limiting
   - Cache and failure counter reset when loading a new stream
   - Cache limited to 100 tracks (FIFO eviction)
