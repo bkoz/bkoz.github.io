@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNKX Live Stream Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .player-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .station-info {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .station-logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .tagline {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .album-artwork-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .album-artwork {
+            width: 200px;
+            height: 200px;
+            min-width: 200px;
+            min-height: 200px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            object-fit: cover;
+            transition: all 0.4s ease;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            display: block;
+            margin: 0 auto;
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0;
+            -webkit-transform: translateZ(0); /* Force GPU rendering on iOS */
+        }
+
+        /* Responsive sizing for smaller screens */
+        @media (max-width: 480px) {
+            .album-artwork {
+                width: 160px;
+                height: 160px;
+                min-width: 160px;
+                min-height: 160px;
+            }
+
+            .artwork-placeholder {
+                font-size: 48px;
+            }
+        }
+
+        .album-artwork img {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+            animation: fadeIn 0.4s ease;
+            display: block !important;
+            flex-shrink: 0;
+            -webkit-transform: translateZ(0); /* Force GPU rendering on iOS */
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .album-artwork.loading::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .artwork-placeholder {
+            font-size: 64px;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .artwork-credit {
+            font-size: 9px;
+            color: #bbb;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        .now-playing {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .now-playing-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .track-info {
+            font-size: 16px;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .artist {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 15px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .title {
+            color: #333;
+            font-size: 18px;
+            display: block;
+            font-weight: 500;
+        }
+
+        .last-updated {
+            font-size: 10px;
+            color: #aaa;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        #playBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #playBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        #playBtn:active {
+            transform: translateY(0);
+        }
+
+        #playBtn.playing {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        #playBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .volume-icon {
+            font-size: 20px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .quality-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .quality-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .quality-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .quality-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+        }
+
+        .quality-value {
+            font-size: 16px;
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .quality-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .quality-badge.excellent {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .quality-badge.good {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .quality-badge.fair {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .quality-badge.poor {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status {
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .status.error {
+            color: #f5576c;
+            background: #fff0f0;
+        }
+
+        .status.success {
+            color: #28a745;
+            background: #d4edda;
+        }
+
+        .quality-selector {
+            margin-bottom: 20px;
+        }
+
+        .quality-selector label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .quality-selector select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .quality-selector select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .tech-info {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="station-info">
+            <div class="station-logo">📻</div>
+            <h1>KNKX</h1>
+            <p class="tagline">Jazz and NPR News for the Pacific Northwest</p>
+        </div>
+
+        <div class="album-artwork-container">
+            <div class="album-artwork" id="albumArtwork">
+                <span class="artwork-placeholder">🎵</span>
+            </div>
+            <div class="artwork-credit" id="artworkCredit">Artwork from MusicBrainz</div>
+        </div>
+
+        <div class="now-playing" id="nowPlaying">
+            <div class="now-playing-label">Now Playing</div>
+            <div class="track-info" id="trackInfo">Press Play to Start</div>
+            <div class="last-updated" id="lastUpdated"></div>
+        </div>
+
+        <div class="controls">
+            <button id="playBtn" onclick="togglePlay()">
+                <span id="playIcon">▶</span>
+                <span id="playText">Play</span>
+            </button>
+        </div>
+
+        <div class="volume-control">
+            <span class="volume-icon">🔊</span>
+            <input type="range" id="volumeSlider" min="0" max="100" value="75" oninput="setVolume(this.value)">
+            <span id="volumeValue">75%</span>
+        </div>
+
+        <div class="quality-info">
+            <div class="quality-row">
+                <span class="quality-label">Current Quality</span>
+                <span class="quality-value" id="currentBitrate">—</span>
+            </div>
+            <div class="quality-row">
+                <span class="quality-label">Network Status</span>
+                <span id="networkStatus" class="quality-badge good">Good</span>
+            </div>
+            <div class="quality-row">
+                <span class="quality-label">Buffer Health</span>
+                <span id="bufferHealth">—</span>
+            </div>
+        </div>
+
+        <div class="quality-selector">
+            <label for="qualityMode">Quality Mode</label>
+            <select id="qualityMode" onchange="changeQualityMode(this.value)">
+                <option value="auto">Auto (Adaptive)</option>
+                <option value="256">High - 256 kbps</option>
+                <option value="64">Medium - 64 kbps</option>
+                <option value="48">Low - 48 kbps</option>
+            </select>
+        </div>
+
+        <div class="status" id="status">Ready to stream</div>
+
+        <div class="tech-info">
+            HLS • AAC • Adaptive Bitrate (256k/64k/48k)<br>
+            <a href="https://knkx.org" target="_blank" style="color: #667eea; text-decoration: none;">knkx.org</a>
+        </div>
+    </div>
+
+    <audio id="audio"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        const audio = document.getElementById('audio');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const status = document.getElementById('status');
+        const currentBitrate = document.getElementById('currentBitrate');
+        const networkStatus = document.getElementById('networkStatus');
+        const bufferHealth = document.getElementById('bufferHealth');
+        const qualityMode = document.getElementById('qualityMode');
+        const albumArtwork = document.getElementById('albumArtwork');
+        const trackInfo = document.getElementById('trackInfo');
+        const lastUpdated = document.getElementById('lastUpdated');
+
+        // Stream quality options (ordered from highest to lowest)
+        const streams = [
+            { bitrate: 256, url: 'https://knkx-live-a.edge.audiocdn.com/6285_256k/playlist.m3u8', label: '256 kbps' },
+            { bitrate: 64, url: 'https://knkx-live-a.edge.audiocdn.com/6285_64k/playlist.m3u8', label: '64 kbps' },
+            { bitrate: 48, url: 'https://knkx-live-a.edge.audiocdn.com/6285_48k/playlist.m3u8', label: '48 kbps' }
+        ];
+
+        let hls = null;
+        let currentStreamIndex = 0;
+        let mode = 'auto';
+        let bufferCheckInterval = null;
+        let stallCount = 0;
+        let lastQualityChange = 0;
+        let metadataInterval = null;
+        let currentTrack = null;
+        let currentArtworkUrl = null;
+
+        // Initialize with highest quality
+        function initPlayer() {
+            currentStreamIndex = 0;
+            loadStream(currentStreamIndex);
+            audio.volume = 0.75;
+        }
+
+        function loadStream(index) {
+            const stream = streams[index];
+            console.log('📡 Loading stream:', stream.label, stream.url);
+
+            // Clean up existing HLS instance
+            if (hls) {
+                hls.destroy();
+            }
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 30,
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 60,
+                    debug: false
+                });
+
+                hls.loadSource(stream.url);
+                hls.attachMedia(audio);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    console.log('✅ Stream ready:', stream.label);
+                    currentBitrate.textContent = stream.label;
+                    setStatus('Ready - ' + stream.label, false);
+                });
+
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (!data.fatal) return;
+
+                    console.error('❌ HLS Error:', data.type, data.details);
+
+                    if (mode === 'auto' && currentStreamIndex < streams.length - 1) {
+                        console.log('⬇️ Trying lower quality stream...');
+                        currentStreamIndex++;
+                        stallCount = 0;
+                        loadStream(currentStreamIndex);
+                    } else {
+                        setStatus('Stream error: ' + data.details, true);
+                    }
+                });
+
+            } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari)
+                audio.src = stream.url;
+                currentBitrate.textContent = stream.label;
+            } else {
+                setStatus('Your browser does not support HLS streaming', true);
+            }
+
+            currentStreamIndex = index;
+        }
+
+        function togglePlay() {
+            if (audio.paused) {
+                playBtn.disabled = true;
+                setStatus('Starting stream...', false);
+
+                audio.play().then(() => {
+                    console.log('✅ Playback started');
+                    playBtn.classList.add('playing');
+                    playIcon.textContent = '⏸';
+                    playText.textContent = 'Pause';
+                    playBtn.disabled = false;
+                    setStatus('Streaming live - ' + streams[currentStreamIndex].label, false);
+                    startMonitoring();
+                    startMetadataFetch();
+                }).catch(err => {
+                    console.error('❌ Play error:', err);
+                    setStatus('Failed to play: ' + err.message, true);
+                    playBtn.disabled = false;
+                });
+            } else {
+                audio.pause();
+                playBtn.classList.remove('playing');
+                playIcon.textContent = '▶';
+                playText.textContent = 'Play';
+                setStatus('Paused', false);
+                stopMonitoring();
+                stopMetadataFetch();
+            }
+        }
+
+        function setVolume(value) {
+            audio.volume = value / 100;
+            document.getElementById('volumeValue').textContent = value + '%';
+        }
+
+        function setStatus(message, isError = false) {
+            status.textContent = message;
+            status.className = 'status';
+            if (isError) {
+                status.classList.add('error');
+            } else if (message.includes('live') || message.includes('Ready')) {
+                status.classList.add('success');
+            }
+        }
+
+        function changeQualityMode(newMode) {
+            mode = newMode;
+            console.log('🎚️ Quality mode changed to:', mode);
+
+            if (mode === 'auto') {
+                // Reset to highest quality
+                if (currentStreamIndex !== 0) {
+                    const wasPlaying = !audio.paused;
+                    loadStream(0);
+                    if (wasPlaying) {
+                        setTimeout(() => audio.play(), 100);
+                    }
+                }
+            } else {
+                // Switch to specific quality
+                const targetIndex = streams.findIndex(s => s.bitrate == newMode);
+                if (targetIndex !== -1 && targetIndex !== currentStreamIndex) {
+                    const wasPlaying = !audio.paused;
+                    loadStream(targetIndex);
+                    if (wasPlaying) {
+                        setTimeout(() => audio.play(), 100);
+                    }
+                }
+            }
+        }
+
+        function startMonitoring() {
+            if (bufferCheckInterval) return;
+
+            stallCount = 0;
+
+            // Monitor buffer health and adapt quality
+            bufferCheckInterval = setInterval(() => {
+                if (audio.paused) return;
+
+                const buffered = audio.buffered;
+                let bufferSeconds = 0;
+
+                if (buffered.length > 0) {
+                    bufferSeconds = buffered.end(buffered.length - 1) - audio.currentTime;
+                }
+
+                // Update buffer health display
+                bufferHealth.textContent = bufferSeconds.toFixed(1) + 's';
+
+                // Adaptive quality switching (only in auto mode)
+                if (mode === 'auto') {
+                    const now = Date.now();
+                    const timeSinceLastChange = now - lastQualityChange;
+
+                    // Wait at least 10 seconds between quality changes
+                    if (timeSinceLastChange < 10000) return;
+
+                    if (bufferSeconds < 2 && currentStreamIndex < streams.length - 1) {
+                        // Buffer is low, step down quality
+                        stallCount++;
+                        if (stallCount >= 2) {
+                            console.log('⬇️ Buffer low, stepping down quality');
+                            currentStreamIndex++;
+                            const wasPlaying = !audio.paused;
+                            loadStream(currentStreamIndex);
+                            if (wasPlaying) setTimeout(() => audio.play(), 100);
+                            stallCount = 0;
+                            lastQualityChange = now;
+                            updateNetworkStatus('fair');
+                        }
+                    } else if (bufferSeconds > 15 && currentStreamIndex > 0) {
+                        // Buffer is healthy, try stepping up quality
+                        console.log('⬆️ Buffer healthy, stepping up quality');
+                        currentStreamIndex--;
+                        const wasPlaying = !audio.paused;
+                        loadStream(currentStreamIndex);
+                        if (wasPlaying) setTimeout(() => audio.play(), 100);
+                        stallCount = 0;
+                        lastQualityChange = now;
+                        updateNetworkStatus('excellent');
+                    } else if (bufferSeconds > 5) {
+                        stallCount = 0;
+                        updateNetworkStatus('good');
+                    }
+                }
+            }, 2000);
+
+            // Monitor stalls
+            audio.addEventListener('waiting', handleWaiting);
+            audio.addEventListener('playing', handlePlaying);
+        }
+
+        function stopMonitoring() {
+            if (bufferCheckInterval) {
+                clearInterval(bufferCheckInterval);
+                bufferCheckInterval = null;
+            }
+            audio.removeEventListener('waiting', handleWaiting);
+            audio.removeEventListener('playing', handlePlaying);
+        }
+
+        function handleWaiting() {
+            console.log('⏳ Buffering...');
+            setStatus('Buffering...', false);
+        }
+
+        function handlePlaying() {
+            console.log('▶️ Playing');
+            setStatus('Streaming live - ' + streams[currentStreamIndex].label, false);
+        }
+
+        function updateNetworkStatus(quality) {
+            networkStatus.className = 'quality-badge ' + quality;
+            const labels = {
+                'excellent': 'Excellent',
+                'good': 'Good',
+                'fair': 'Fair',
+                'poor': 'Poor'
+            };
+            networkStatus.textContent = labels[quality] || 'Good';
+        }
+
+        async function fetchMetadata() {
+            try {
+                console.log('🔍 Fetching metadata...');
+                const stream = streams[currentStreamIndex];
+                console.log('Stream URL:', stream.url);
+
+                // Fetch the master playlist
+                const masterResp = await fetch(stream.url);
+                const masterText = await masterResp.text();
+                console.log('Master playlist fetched, length:', masterText.length);
+
+                // Extract media playlist URL
+                const masterLines = masterText.split('\n');
+                let mediaUrl = null;
+                for (let line of masterLines) {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('http')) {
+                        // Keep the full URL with session parameters
+                        mediaUrl = trimmed;
+                        break;
+                    }
+                }
+
+                console.log('Media URL:', mediaUrl);
+
+                if (!mediaUrl) {
+                    console.log('❌ No media URL found in master playlist');
+                    console.log('Master playlist content:', masterText);
+                    return;
+                }
+
+                // Fetch the media playlist
+                const mediaResp = await fetch(mediaUrl);
+                const mediaText = await mediaResp.text();
+                console.log('Media playlist fetched, length:', mediaText.length);
+                console.log('First 500 chars:', mediaText.substring(0, 500));
+
+                // Parse EXTINF tags for track info
+                const mediaLines = mediaText.split('\n');
+                let lastTrack = null;
+
+                for (let i = 0; i < mediaLines.length; i++) {
+                    if (mediaLines[i].startsWith('#EXTINF:')) {
+                        const match = mediaLines[i].match(/#EXTINF:[\d.]+,(.+)/);
+                        if (match) {
+                            lastTrack = match[1].trim();
+                            console.log('Found track in EXTINF:', lastTrack);
+                        }
+                    }
+                }
+
+                console.log('Last track found:', lastTrack);
+                console.log('Current track:', currentTrack);
+
+                if (lastTrack) {
+                    if (lastTrack !== currentTrack) {
+                        console.log('✅ New track detected:', lastTrack);
+                        currentTrack = lastTrack;
+                        updateTrackDisplay(lastTrack);
+
+                        // Update timestamp
+                        const now = new Date().toLocaleTimeString();
+                        lastUpdated.textContent = `Updated at ${now}`;
+                    } else {
+                        console.log('Track unchanged');
+                    }
+                } else {
+                    console.log('❌ No track found in media playlist');
+                }
+
+            } catch (err) {
+                console.error('❌ Metadata fetch error:', err);
+                console.error('Error stack:', err.stack);
+            }
+        }
+
+        function updateTrackDisplay(trackString) {
+            console.log('🎵 updateTrackDisplay called with:', trackString);
+            let artist = null;
+            let title = null;
+
+            if (trackString.includes(' - ')) {
+                const [artistPart, ...titleParts] = trackString.split(' - ');
+                artist = artistPart.trim();
+                title = titleParts.join(' - ').trim();
+                console.log('Parsed - Artist:', artist, 'Title:', title);
+                trackInfo.innerHTML = `<span class="artist">${escapeHtml(artist)}</span><span class="title">${escapeHtml(title)}</span>`;
+            } else {
+                console.log('No " - " found, treating as title only');
+                trackInfo.innerHTML = `<span class="title">${escapeHtml(trackString)}</span>`;
+            }
+
+            console.log('Track info HTML updated');
+
+            // Fetch album artwork if we have artist and title
+            if (artist && title) {
+                console.log('Fetching album artwork for:', artist, '-', title);
+                fetchAlbumArtwork(artist, title);
+            } else {
+                console.log('No artist/title, resetting artwork');
+                resetArtwork();
+            }
+        }
+
+        async function fetchAlbumArtwork(artist, title) {
+            try {
+                console.log('🎨 fetchAlbumArtwork called');
+                albumArtwork.classList.add('loading');
+
+                // Detect iOS
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                console.log('Device is iOS:', isIOS);
+
+                let artworkUrl = null;
+
+                if (isIOS) {
+                    // Use MusicBrainz/Cover Art Archive for iOS (open, free, excellent CORS)
+                    console.log('Using MusicBrainz for iOS');
+                    artworkUrl = await fetchMusicBrainzArtwork(artist, title);
+                } else {
+                    // Try iTunes API for non-iOS devices
+                    console.log('Using iTunes API');
+                    artworkUrl = await fetchItunesArtwork(artist, title);
+
+                    // Fallback to MusicBrainz if iTunes fails
+                    if (!artworkUrl) {
+                        console.log('iTunes failed, trying MusicBrainz');
+                        artworkUrl = await fetchMusicBrainzArtwork(artist, title);
+                    }
+                }
+
+                console.log('Final artwork URL:', artworkUrl);
+
+                if (artworkUrl) {
+
+                    // Only update if this is a new artwork
+                    if (artworkUrl !== currentArtworkUrl) {
+                        currentArtworkUrl = artworkUrl;
+
+                        // Create image element
+                        const img = document.createElement('img');
+                        img.alt = `${artist} - ${title}`;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.display = 'block';
+                        img.style.objectFit = 'cover';
+
+                        // Handle successful load
+                        img.onload = function() {
+                            console.log('✅ Image loaded successfully');
+                            albumArtwork.classList.remove('loading');
+                        };
+
+                        // Handle load errors
+                        img.onerror = function() {
+                            console.error('❌ Image failed to load');
+                            resetArtwork();
+                            albumArtwork.classList.remove('loading');
+                        };
+
+                        // Replace placeholder with image
+                        albumArtwork.innerHTML = '';
+                        albumArtwork.appendChild(img);
+
+                        // Set src AFTER appending to DOM (important for iOS)
+                        img.src = artworkUrl;
+
+                        console.log('✅ Album artwork element created and added to DOM');
+                    } else {
+                        console.log('Artwork unchanged');
+                        albumArtwork.classList.remove('loading');
+                    }
+                } else {
+                    console.log('❌ No artwork found for:', artist, '-', title);
+                    resetArtwork();
+                    albumArtwork.classList.remove('loading');
+                }
+
+            } catch (err) {
+                console.error('❌ Album artwork fetch error:', err);
+                console.error('Error stack:', err.stack);
+                albumArtwork.classList.remove('loading');
+                resetArtwork();
+            }
+        }
+
+        function resetArtwork() {
+            if (albumArtwork.querySelector('img')) {
+                albumArtwork.innerHTML = '<span class="artwork-placeholder">🎵</span>';
+                currentArtworkUrl = null;
+            }
+        }
+
+        // iTunes API artwork fetch
+        async function fetchItunesArtwork(artist, title) {
+            try {
+                const searchTerm = encodeURIComponent(`${artist} ${title}`);
+                const apiUrl = `https://itunes.apple.com/search?term=${searchTerm}&media=music&entity=song&limit=1`;
+                console.log('iTunes API URL:', apiUrl);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error('iTunes API failed');
+                }
+
+                const data = await response.json();
+                if (data.results && data.results.length > 0) {
+                    const artworkUrl = data.results[0].artworkUrl100.replace('100x100', '600x600');
+                    console.log('iTunes artwork found:', artworkUrl);
+                    return artworkUrl;
+                }
+                return null;
+            } catch (err) {
+                console.log('iTunes API error:', err.message);
+                return null;
+            }
+        }
+
+        // MusicBrainz + Cover Art Archive (iOS-compatible, open source, free)
+        async function fetchMusicBrainzArtwork(artist, title) {
+            try {
+                // Step 1: Search MusicBrainz for the recording
+                const query = encodeURIComponent(`artist:"${artist}" AND recording:"${title}"`);
+                const searchUrl = `https://musicbrainz.org/ws/2/recording/?query=${query}&fmt=json&limit=1`;
+
+                console.log('MusicBrainz search URL:', searchUrl);
+
+                const searchResp = await fetch(searchUrl, {
+                    headers: {
+                        'User-Agent': 'KNKXPlayer/1.0 (https://knkx.org)'
+                    }
+                });
+
+                if (!searchResp.ok) {
+                    throw new Error('MusicBrainz search failed');
+                }
+
+                const searchData = await searchResp.json();
+                console.log('MusicBrainz search response:', searchData);
+
+                if (!searchData.recordings || searchData.recordings.length === 0) {
+                    console.log('No recordings found on MusicBrainz');
+                    return null;
+                }
+
+                // Step 2: Get the release (album) ID
+                const recording = searchData.recordings[0];
+                if (!recording.releases || recording.releases.length === 0) {
+                    console.log('No releases found for recording');
+                    return null;
+                }
+
+                const releaseId = recording.releases[0].id;
+                console.log('Release ID:', releaseId);
+
+                // Step 3: Fetch cover art from Cover Art Archive
+                const coverUrl = `https://coverartarchive.org/release/${releaseId}/front-500`;
+                console.log('Cover Art URL:', coverUrl);
+
+                // Check if cover art exists (will redirect to actual image)
+                const coverResp = await fetch(coverUrl, { method: 'HEAD' });
+                if (coverResp.ok) {
+                    console.log('MusicBrainz artwork found');
+                    return coverUrl;
+                }
+
+                return null;
+            } catch (err) {
+                console.log('MusicBrainz API error:', err.message);
+                return null;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function startMetadataFetch() {
+            fetchMetadata(); // Immediate fetch
+            metadataInterval = setInterval(fetchMetadata, 10000); // Every 10 seconds
+        }
+
+        function stopMetadataFetch() {
+            if (metadataInterval) {
+                clearInterval(metadataInterval);
+                metadataInterval = null;
+            }
+        }
+
+        // Initialize on load
+        initPlayer();
+    </script>
+</body>
+</html>

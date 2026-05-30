@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KUT/KUTX Live Stream Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .player-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .station-info {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .station-logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .album-artwork-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .album-artwork {
+            width: 200px;
+            height: 200px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            object-fit: cover;
+            transition: all 0.4s ease;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .album-artwork img {
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .album-artwork.loaded {
+            background: none;
+        }
+
+        .album-artwork.loading {
+            opacity: 0.6;
+        }
+
+        .album-artwork.loading::after {
+            content: '';
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .artwork-placeholder {
+            font-size: 64px;
+            color: #ccc;
+        }
+
+        .artwork-credit {
+            font-size: 9px;
+            color: #bbb;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .tagline {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .now-playing {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .now-playing.updating {
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #f5576c;
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+
+        .track-info {
+            font-size: 18px;
+            color: #333;
+            font-weight: 500;
+            line-height: 1.5;
+            transition: opacity 0.3s ease;
+        }
+
+        .track-info.fade {
+            opacity: 0.5;
+        }
+
+        .artist {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 16px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .title {
+            color: #333;
+            font-size: 20px;
+            display: block;
+        }
+
+        .last-updated {
+            font-size: 10px;
+            color: #aaa;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        #playBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #playBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        #playBtn:active {
+            transform: translateY(0);
+        }
+
+        #playBtn.playing {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .volume-icon {
+            font-size: 20px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .status {
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .status.error {
+            color: #f5576c;
+            background: #fff0f0;
+        }
+
+        .status.loading {
+            color: #667eea;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .tech-info {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+        }
+
+        .bitrate-indicator {
+            text-align: center;
+            font-size: 12px;
+            color: #667eea;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .bitrate-indicator .label {
+            color: #999;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-right: 5px;
+        }
+
+        .bitrate-value {
+            color: #667eea;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="station-info">
+            <div class="station-logo">📻</div>
+            <h1>KNKX</h1>
+            <p class="tagline">Jazz and NPR News for the Pacific Northwest</p>
+        </div>
+
+        <div class="album-artwork-container">
+            <div class="album-artwork" id="albumArtwork">
+                <span class="artwork-placeholder">🎵</span>
+            </div>
+            <div class="artwork-credit">Artwork from iTunes</div>
+        </div>
+
+        <div class="now-playing" id="nowPlaying">
+            <div class="label">
+                <span id="liveIndicator"></span>
+                <span>Now Playing</span>
+            </div>
+            <div class="track-info" id="trackInfo">Press Play to Start</div>
+            <div class="last-updated" id="lastUpdated"></div>
+        </div>
+
+        <div class="controls">
+            <button id="playBtn" onclick="togglePlay()">
+                <span id="playIcon">▶</span>
+                <span id="playText">Play</span>
+            </button>
+        </div>
+
+        <div class="volume-control">
+            <span class="volume-icon">🔊</span>
+            <input type="range" id="volumeSlider" min="0" max="100" value="75" oninput="setVolume(this.value)">
+            <span id="volumeValue">75%</span>
+        </div>
+
+        <div class="bitrate-indicator" id="bitrateIndicator">
+            <span class="label">Bitrate:</span>
+            <span class="bitrate-value" id="bitrateValue">—</span>
+        </div>
+
+        <div class="status" id="status">Ready to stream</div>
+
+        <div class="tech-info">
+            HLS • AAC • Adaptive (256k/64k/48k)<br>
+            <a href="https://knkx.org" target="_blank" style="color: #667eea; text-decoration: none;">knkx.org</a>
+        </div>
+    </div>
+
+    <audio id="audio"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        const audio = document.getElementById('audio');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const status = document.getElementById('status');
+        const trackInfo = document.getElementById('trackInfo');
+        const nowPlaying = document.getElementById('nowPlaying');
+        const liveIndicator = document.getElementById('liveIndicator');
+        const lastUpdated = document.getElementById('lastUpdated');
+        const albumArtwork = document.getElementById('albumArtwork');
+        const bitrateValue = document.getElementById('bitrateValue');
+
+        const streamUrl = 'master.m3u8';
+        let hls = null;
+        let metadataInterval = null;
+        let currentTrack = null;
+        let currentArtworkUrl = null;
+        let streamReady = false;
+
+        // Initialize HLS
+        function initPlayer() {
+            if (Hls.isSupported()) {
+                console.log('HLS.js is supported, initializing with URL:', streamUrl);
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 90,
+                    debug: false,
+                    // ABR optimization for highest sustainable bitrate
+                    abrEwmaDefaultEstimate: 1000000, // Start with 1 Mbps estimate
+                    abrBandWidthFactor: 0.95,        // Use 95% of measured bandwidth (more aggressive)
+                    abrBandWidthUpFactor: 0.8,       // Upgrade faster when bandwidth improves
+                    startLevel: -1,                  // -1 = auto-select best initial level
+                    capLevelToPlayerSize: false,     // Don't limit quality based on player size
+                    xhrSetup: function(xhr, url) {
+                        xhr.withCredentials = false;
+                    },
+                    manifestLoadingTimeOut: 20000,
+                    manifestLoadingMaxRetry: 4,
+                    levelLoadingTimeOut: 20000,
+                    levelLoadingMaxRetry: 4,
+                    fragLoadingTimeOut: 40000,
+                    fragLoadingMaxRetry: 6
+                });
+
+                hls.loadSource(streamUrl);
+                hls.attachMedia(audio);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+                    console.log('✅ Stream ready - manifest parsed:', data);
+                    console.log('Available levels:', data.levels);
+                    streamReady = true;
+                    setStatus('Ready to stream', false);
+                });
+
+                hls.on(Hls.Events.MANIFEST_LOADING, function(event, data) {
+                    console.log('📡 Loading manifest from:', data.url);
+                });
+
+                hls.on(Hls.Events.MANIFEST_LOADED, function(event, data) {
+                    console.log('📥 Manifest loaded:', data);
+                });
+
+                hls.on(Hls.Events.LEVEL_LOADING, function(event, data) {
+                    console.log('📡 Loading level:', data.level, 'from:', data.url);
+                });
+
+                hls.on(Hls.Events.LEVEL_LOADED, function(event, data) {
+                    console.log('📥 Level loaded:', data.level);
+                });
+
+                hls.on(Hls.Events.FRAG_LOADING, function(event, data) {
+                    console.log('📡 Loading fragment:', data.frag.sn);
+                });
+
+                hls.on(Hls.Events.FRAG_LOADED, function(event, data) {
+                    console.log('📥 Fragment loaded:', data.frag.sn);
+                });
+
+                // Wait for media to be ready
+                audio.addEventListener('loadedmetadata', function() {
+                    console.log('🎵 Audio metadata loaded, ready to play');
+                    streamReady = true;
+                });
+
+                audio.addEventListener('canplay', function() {
+                    console.log('🎵 Audio can start playing');
+                });
+
+                audio.addEventListener('playing', function() {
+                    console.log('▶️ Audio is now playing');
+                });
+
+                audio.addEventListener('waiting', function() {
+                    console.log('⏳ Audio is waiting for data');
+                });
+
+                audio.addEventListener('error', function(e) {
+                    console.error('❌ Audio element error:', e);
+                    if (audio.error) {
+                        console.error('Audio error code:', audio.error.code);
+                        console.error('Audio error message:', audio.error.message);
+                    }
+                });
+
+                // Track bitrate changes
+                hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+                    const level = hls.levels[data.level];
+                    if (level) {
+                        const bitrate = Math.round(level.bitrate / 1000); // Convert to kbps
+                        bitrateValue.textContent = `${bitrate} kbps`;
+                        console.log('🔄 Switched to bitrate:', bitrate, 'kbps');
+                    }
+                });
+
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    console.error('HLS Error:', data);
+
+                    // Skip non-fatal errors
+                    if (!data.fatal) return;
+
+                    console.error('Fatal error - Type:', data.type, 'Details:', data.details);
+
+                    // For level parsing errors, try to remove the problematic level
+                    if (data.details === 'levelParsingError' && data.level !== undefined) {
+                        console.log('Level parsing error on level', data.level, '- HLS.js will try other levels');
+                        // Don't retry - let HLS.js fall back to other quality levels
+                        return;
+                    }
+
+                    setStatus('Stream error: ' + data.details, true);
+
+                    switch(data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log('Network error, trying startLoad()');
+                            setTimeout(() => hls.startLoad(), 1000);
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log('Media error, trying recoverMediaError()');
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            console.log('Other fatal error, reinitializing player');
+                            setTimeout(() => initPlayer(), 2000);
+                            break;
+                    }
+                });
+            } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari)
+                audio.src = streamUrl;
+            } else {
+                setStatus('Your browser does not support HLS streaming', true);
+            }
+
+            // Set initial volume
+            audio.volume = 0.75;
+        }
+
+        function togglePlay() {
+            if (audio.paused) {
+                if (!streamReady) {
+                    setStatus('Stream initializing, please wait...', false, true);
+                    console.log('Stream not ready yet, waiting...');
+                    // Try again after a short delay
+                    setTimeout(() => {
+                        if (streamReady) togglePlay();
+                    }, 500);
+                    return;
+                }
+
+                console.log('Attempting to play audio...');
+                console.log('Audio readyState:', audio.readyState);
+                console.log('Audio networkState:', audio.networkState);
+
+                // Start loading if needed
+                if (hls && audio.readyState === 0) {
+                    hls.startLoad();
+                    setStatus('Loading stream...', false, true);
+                }
+
+                audio.play().then(() => {
+                    console.log('Audio play() succeeded');
+                    playBtn.classList.add('playing');
+                    playIcon.textContent = '⏸';
+                    playText.textContent = 'Pause';
+                    setStatus('Streaming live', false, true);
+                    liveIndicator.className = 'live-indicator';
+                    startMetadataFetch();
+                }).catch(err => {
+                    console.error('Play error:', err);
+                    console.error('Error name:', err.name);
+                    console.error('Error message:', err.message);
+                    setStatus('Failed to play: ' + err.message, true);
+                });
+            } else {
+                audio.pause();
+                playBtn.classList.remove('playing');
+                playIcon.textContent = '▶';
+                playText.textContent = 'Play';
+                setStatus('Paused', false);
+                liveIndicator.className = '';
+                stopMetadataFetch();
+            }
+        }
+
+        function setVolume(value) {
+            audio.volume = value / 100;
+            document.getElementById('volumeValue').textContent = value + '%';
+        }
+
+        function setStatus(message, isError = false, isLoading = false) {
+            status.textContent = message;
+            status.className = 'status';
+            if (isError) status.classList.add('error');
+            if (isLoading) status.classList.add('loading');
+        }
+
+        async function fetchMetadata() {
+            try {
+                // Visual feedback - starting update
+                nowPlaying.classList.add('updating');
+                trackInfo.classList.add('fade');
+
+                // Fetch master playlist
+                const masterResp = await fetch(streamUrl);
+                const masterText = await masterResp.text();
+
+                // Extract media playlist URL (look for lines starting with http)
+                const lines = masterText.split('\n');
+                let mediaUrl = null;
+                for (let line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('http')) {
+                        mediaUrl = trimmed;
+                        break;
+                    }
+                }
+
+                if (!mediaUrl) {
+                    console.log('No media URL found in master playlist');
+                    return;
+                }
+
+                // Fetch media playlist
+                const mediaResp = await fetch(mediaUrl);
+                const mediaText = await mediaResp.text();
+
+                // Parse EXTINF tags for track info
+                const mediaLines = mediaText.split('\n');
+                let lastTrack = null;
+
+                for (let i = 0; i < mediaLines.length; i++) {
+                    if (mediaLines[i].startsWith('#EXTINF:')) {
+                        const match = mediaLines[i].match(/#EXTINF:[\d.]+,(.+)/);
+                        if (match) {
+                            lastTrack = match[1].trim();
+                        }
+                    }
+                }
+
+                if (lastTrack && lastTrack !== currentTrack) {
+                    currentTrack = lastTrack;
+                    updateTrackDisplay(lastTrack);
+
+                    // Update timestamp
+                    const now = new Date().toLocaleTimeString();
+                    lastUpdated.textContent = `Updated at ${now}`;
+                }
+
+                // Remove visual feedback
+                setTimeout(() => {
+                    nowPlaying.classList.remove('updating');
+                    trackInfo.classList.remove('fade');
+                }, 300);
+
+            } catch (err) {
+                console.error('Metadata fetch error:', err);
+                nowPlaying.classList.remove('updating');
+                trackInfo.classList.remove('fade');
+            }
+        }
+
+        function updateTrackDisplay(trackString) {
+            let artist = null;
+            let title = null;
+
+            if (trackString.includes(' - ')) {
+                const [artistPart, ...titleParts] = trackString.split(' - ');
+                artist = artistPart.trim();
+                title = titleParts.join(' - ').trim();
+                trackInfo.innerHTML = `<span class="artist">${escapeHtml(artist)}</span><span class="title">${escapeHtml(title)}</span>`;
+            } else {
+                trackInfo.innerHTML = `<span class="title">${escapeHtml(trackString)}</span>`;
+            }
+
+            // Log to console for debugging
+            console.log('🎵 Now Playing:', trackString);
+
+            // Fetch album artwork if we have artist and title
+            if (artist && title) {
+                fetchAlbumArtwork(artist, title);
+            } else {
+                // Reset to placeholder for non-music content
+                resetArtwork();
+            }
+        }
+
+        async function fetchAlbumArtwork(artist, title) {
+            try {
+                albumArtwork.classList.add('loading');
+
+                // Search iTunes API
+                const searchTerm = encodeURIComponent(`${artist} ${title}`);
+                const response = await fetch(
+                    `https://itunes.apple.com/search?term=${searchTerm}&media=music&entity=song&limit=1`
+                );
+
+                if (!response.ok) {
+                    throw new Error('iTunes API request failed');
+                }
+
+                const data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    // Get high-resolution artwork (600x600)
+                    const artworkUrl = result.artworkUrl100.replace('100x100', '600x600');
+
+                    // Only update if this is a new artwork
+                    if (artworkUrl !== currentArtworkUrl) {
+                        currentArtworkUrl = artworkUrl;
+
+                        // Create image element
+                        const img = document.createElement('img');
+                        img.src = artworkUrl;
+                        img.alt = `${artist} - ${title}`;
+                        img.className = 'album-artwork loaded';
+                        img.style.width = '200px';
+                        img.style.height = '200px';
+                        img.style.borderRadius = '12px';
+
+                        // Replace placeholder with image
+                        albumArtwork.innerHTML = '';
+                        albumArtwork.appendChild(img);
+
+                        console.log('🎨 Album artwork loaded:', result.trackName, 'by', result.artistName);
+                    }
+                } else {
+                    console.log('🎨 No artwork found for:', artist, '-', title);
+                    resetArtwork();
+                }
+
+                albumArtwork.classList.remove('loading');
+
+            } catch (err) {
+                console.error('Album artwork fetch error:', err);
+                albumArtwork.classList.remove('loading');
+                resetArtwork();
+            }
+        }
+
+        function resetArtwork() {
+            if (albumArtwork.querySelector('img')) {
+                albumArtwork.innerHTML = '<span class="artwork-placeholder">🎵</span>';
+                albumArtwork.classList.remove('loaded');
+                currentArtworkUrl = null;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function startMetadataFetch() {
+            fetchMetadata(); // Immediate fetch
+            metadataInterval = setInterval(fetchMetadata, 10000); // Every 10 seconds
+        }
+
+        function stopMetadataFetch() {
+            if (metadataInterval) {
+                clearInterval(metadataInterval);
+                metadataInterval = null;
+            }
+        }
+
+        // Initialize on load
+        initPlayer();
+    </script>
+</body>
+</html>
