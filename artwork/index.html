@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iTunes Album Artwork & Track Info</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .results {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .album-info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .artwork-container {
+            flex-shrink: 0;
+        }
+
+        .artwork {
+            width: 300px;
+            height: 300px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            object-fit: cover;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .button-group .download-btn {
+            width: 100%;
+            font-size: 14px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .button-group .download-btn:first-child {
+            grid-column: 1 / -1;
+        }
+
+        .album-details {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .album-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .artist-name {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .meta-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .meta-item {
+            display: flex;
+            gap: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .meta-label {
+            font-weight: 600;
+            min-width: 100px;
+        }
+
+        .tracks {
+            margin-top: 30px;
+        }
+
+        .tracks h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .track-item {
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .track-item:hover {
+            background: #e9ecef;
+        }
+
+        .track-number {
+            font-weight: 700;
+            color: #667eea;
+            min-width: 30px;
+        }
+
+        .track-name {
+            flex: 1;
+            margin-left: 15px;
+            color: #333;
+        }
+
+        .track-duration {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            display: none;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .album-selection {
+            display: none;
+            margin-bottom: 30px;
+        }
+
+        .album-selection h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .album-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .album-option {
+            padding: 15px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .album-option:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .album-option.selected {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .album-option-artwork {
+            width: 80px;
+            height: 80px;
+            border-radius: 6px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .album-option-details {
+            flex: 1;
+        }
+
+        .album-option-title {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .album-option-artist {
+            color: #667eea;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .album-option-meta {
+            color: #999;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>iTunes Album Search</h1>
+
+        <form class="search-form" id="searchForm">
+            <div class="input-group">
+                <label for="artist">Artist Name</label>
+                <input type="text" id="artist" placeholder="Enter artist name" required>
+            </div>
+
+            <div class="input-group">
+                <label for="album">Album Name</label>
+                <input type="text" id="album" placeholder="Enter album name" required>
+            </div>
+
+            <button type="submit" id="searchBtn">Search Album</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Searching iTunes...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="album-selection" id="albumSelection">
+            <h2>Multiple Albums Found - Choose One:</h2>
+            <div class="album-options" id="albumOptions"></div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="album-info">
+                <div class="artwork-container">
+                    <img id="artwork" class="artwork" src="" alt="Album Artwork">
+                    <div class="button-group">
+                        <button class="download-btn" id="copyImageBtn">Copy Artwork to Clipboard</button>
+                        <button class="download-btn" id="downloadBtn">Download Artwork</button>
+                        <button class="download-btn" id="downloadTracksBtn">Download Track Info</button>
+                    </div>
+                </div>
+
+                <div class="album-details">
+                    <h2 class="album-title" id="albumTitle"></h2>
+                    <p class="artist-name" id="artistName"></p>
+
+                    <div class="meta-info">
+                        <div class="meta-item">
+                            <span class="meta-label">Genre:</span>
+                            <span id="genre"></span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Release Date:</span>
+                            <span id="releaseDate"></span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Track Count:</span>
+                            <span id="trackCount"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tracks">
+                <h2>Tracks</h2>
+                <div class="track-list" id="trackList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('searchForm');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const albumSelection = document.getElementById('albumSelection');
+        const albumOptions = document.getElementById('albumOptions');
+        const results = document.getElementById('results');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyImageBtn = document.getElementById('copyImageBtn');
+        const downloadTracksBtn = document.getElementById('downloadTracksBtn');
+
+        let currentTracks = [];
+        let allSearchResults = [];
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const artist = document.getElementById('artist').value.trim();
+            const album = document.getElementById('album').value.trim();
+
+            if (!artist || !album) return;
+
+            await searchAlbum(artist, album);
+        });
+
+        async function searchAlbum(artist, album) {
+            // Hide results, selection, and error; show loading
+            results.style.display = 'none';
+            albumSelection.style.display = 'none';
+            error.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+                const itunesQuery = encodeURIComponent(`${artist} ${album}`);
+                const response = await fetch(`https://itunes.apple.com/search?term=${itunesQuery}&entity=song&limit=200`);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch from iTunes API');
+                }
+
+                const data = await response.json();
+
+                if (data.results.length === 0) {
+                    throw new Error('No results found. Please try different search terms.');
+                }
+
+                allSearchResults = data.results;
+
+                // Group tracks by collection (album)
+                const albumsMap = new Map();
+                data.results.forEach(track => {
+                    const collectionId = track.collectionId;
+                    if (!albumsMap.has(collectionId)) {
+                        albumsMap.set(collectionId, {
+                            collectionId,
+                            collectionName: track.collectionName,
+                            artistName: track.artistName,
+                            artworkUrl100: track.artworkUrl100,
+                            primaryGenreName: track.primaryGenreName,
+                            releaseDate: track.releaseDate,
+                            tracks: []
+                        });
+                    }
+                    albumsMap.get(collectionId).tracks.push(track);
+                });
+
+                const albums = Array.from(albumsMap.values());
+
+                if (albums.length === 1) {
+                    // Only one album found, display directly
+                    displayResults(albums[0].tracks);
+                } else {
+                    // Multiple albums, show selection
+                    showAlbumSelection(albums);
+                }
+
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayResults(tracks) {
+            // Remove duplicates based on track number and name
+            const uniqueTracks = [];
+            const seen = new Set();
+
+            tracks.forEach(track => {
+                const key = `${track.trackNumber}-${track.trackName}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueTracks.push(track);
+                }
+            });
+
+            // Sort by track number
+            uniqueTracks.sort((a, b) => {
+                const numA = a.trackNumber || 9999;
+                const numB = b.trackNumber || 9999;
+                return numA - numB;
+            });
+
+            // Reassign sequential track numbers
+            uniqueTracks.forEach((track, index) => {
+                track.trackNumber = index + 1;
+            });
+
+            // Store sorted, unique tracks for download
+            currentTracks = uniqueTracks;
+
+            // Get album info from first track
+            const albumData = uniqueTracks[0];
+
+            // Display album artwork (get high-res version)
+            const artworkUrl = albumData.artworkUrl100.replace('100x100bb', '600x600bb');
+            document.getElementById('artwork').src = artworkUrl;
+
+            // Display album details
+            document.getElementById('albumTitle').textContent = albumData.collectionName;
+            document.getElementById('artistName').textContent = albumData.artistName;
+            document.getElementById('genre').textContent = albumData.primaryGenreName;
+
+            const releaseDate = new Date(albumData.releaseDate);
+            document.getElementById('releaseDate').textContent = releaseDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            document.getElementById('trackCount').textContent = uniqueTracks.length;
+
+            // Display track list
+            const trackList = document.getElementById('trackList');
+            trackList.innerHTML = '';
+
+            uniqueTracks.forEach((track) => {
+                const trackItem = document.createElement('div');
+                trackItem.className = 'track-item';
+
+                const duration = formatDuration(track.trackTimeMillis);
+
+                trackItem.innerHTML = `
+                    <span class="track-number">${track.trackNumber || '-'}</span>
+                    <span class="track-name">${track.trackName}</span>
+                    <span class="track-duration">${duration}</span>
+                `;
+
+                trackList.appendChild(trackItem);
+            });
+
+            // Setup download and copy buttons
+            downloadBtn.onclick = () => downloadArtwork(artworkUrl, albumData.collectionName, albumData.artistName);
+            copyImageBtn.onclick = () => copyImageToClipboard(artworkUrl);
+            downloadTracksBtn.onclick = () => downloadTrackInfo(uniqueTracks, albumData);
+
+            // Show results
+            results.style.display = 'block';
+        }
+
+        function formatDuration(milliseconds) {
+            if (!milliseconds) return '-';
+
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        async function downloadArtwork(url, albumName, artistName) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+
+                // Create a clean filename
+                const filename = `${artistName} - ${albumName}.jpg`
+                    .replace(/[/\\?%*:|"<>]/g, '-');
+
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Clean up the object URL
+                URL.revokeObjectURL(link.href);
+            } catch (err) {
+                showError('Failed to download artwork: ' + err.message);
+            }
+        }
+
+        async function copyImageToClipboard(url) {
+            try {
+                // Fetch the image
+                const response = await fetch(url);
+                const blob = await response.blob();
+
+                // Convert to PNG if it's not already (clipboard API works best with PNG)
+                const img = new Image();
+                img.src = URL.createObjectURL(blob);
+
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                });
+
+                // Draw to canvas to convert format
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                // Convert canvas to blob
+                canvas.toBlob(async (pngBlob) => {
+                    try {
+                        // Copy to clipboard
+                        await navigator.clipboard.write([
+                            new ClipboardItem({
+                                'image/png': pngBlob
+                            })
+                        ]);
+
+                        // Visual feedback
+                        const originalText = copyImageBtn.textContent;
+                        copyImageBtn.textContent = '✓ Copied to Clipboard!';
+                        copyImageBtn.style.background = 'linear-gradient(135deg, #56ab2f 0%, #a8e063 100%)';
+
+                        setTimeout(() => {
+                            copyImageBtn.textContent = originalText;
+                            copyImageBtn.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+                        }, 2000);
+
+                        // Clean up
+                        URL.revokeObjectURL(img.src);
+                    } catch (clipboardErr) {
+                        throw new Error('Clipboard access denied. Please allow clipboard permissions.');
+                    }
+                }, 'image/png');
+
+            } catch (err) {
+                showError('Failed to copy image: ' + err.message);
+            }
+        }
+
+        function downloadTrackInfo(tracks, albumData) {
+            try {
+                // Create formatted text content
+                let textContent = '';
+                textContent += '='.repeat(60) + '\n';
+                textContent += `${albumData.collectionName}\n`;
+                textContent += `by ${albumData.artistName}\n`;
+                textContent += '='.repeat(60) + '\n\n';
+
+                const releaseDate = new Date(albumData.releaseDate);
+                textContent += `Genre: ${albumData.primaryGenreName}\n`;
+                textContent += `Release Date: ${releaseDate.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                })}\n`;
+                textContent += `Total Tracks: ${tracks.length}\n\n`;
+                textContent += '-'.repeat(60) + '\n';
+                textContent += 'TRACK LISTING\n';
+                textContent += '-'.repeat(60) + '\n\n';
+
+                // Add each track
+                tracks.forEach((track) => {
+                    const trackNum = track.trackNumber ? String(track.trackNumber).padStart(2, ' ') : '--';
+                    const duration = formatDuration(track.trackTimeMillis);
+                    textContent += `${trackNum}. ${track.trackName}`;
+                    if (duration !== '-') {
+                        textContent += ` (${duration})`;
+                    }
+                    textContent += '\n';
+                });
+
+                textContent += '\n' + '-'.repeat(60) + '\n';
+                textContent += `Downloaded from iTunes on ${new Date().toLocaleDateString('en-US')}\n`;
+
+                // Create blob and download
+                const blob = new Blob([textContent], { type: 'text/plain' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+
+                // Create clean filename
+                const filename = `${albumData.artistName} - ${albumData.collectionName} - Track List.txt`
+                    .replace(/[/\\?%*:|"<>]/g, '-');
+
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Clean up
+                URL.revokeObjectURL(link.href);
+            } catch (err) {
+                showError('Failed to download track info: ' + err.message);
+            }
+        }
+
+        function showAlbumSelection(albums) {
+            albumOptions.innerHTML = '';
+
+            albums.forEach((album, index) => {
+                const option = document.createElement('div');
+                option.className = 'album-option';
+
+                const releaseYear = new Date(album.releaseDate).getFullYear();
+
+                option.innerHTML = `
+                    <img src="${album.artworkUrl100}" alt="${album.collectionName}" class="album-option-artwork">
+                    <div class="album-option-details">
+                        <div class="album-option-title">${album.collectionName}</div>
+                        <div class="album-option-artist">${album.artistName}</div>
+                        <div class="album-option-meta">${releaseYear} • ${album.primaryGenreName} • ${album.tracks.length} tracks</div>
+                    </div>
+                `;
+
+                option.addEventListener('click', () => {
+                    albumSelection.style.display = 'none';
+                    displayResults(album.tracks);
+                });
+
+                albumOptions.appendChild(option);
+            });
+
+            albumSelection.style.display = 'block';
+        }
+
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
