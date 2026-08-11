@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNKX Live Stream Player</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="player-container">
+        <div class="station-info">
+            <div class="station-logo">📻</div>
+            <h1>KNKX</h1>
+            <p class="tagline">Jazz and NPR News for the Pacific Northwest</p>
+        </div>
+
+        <div class="album-artwork-container">
+            <div class="album-artwork" id="albumArtwork">
+                <span class="artwork-placeholder">🎵</span>
+            </div>
+            <div class="artwork-credit" id="artworkCredit">Artwork from MusicBrainz</div>
+        </div>
+
+        <div class="now-playing" id="nowPlaying">
+            <div class="now-playing-label">Now Playing</div>
+            <div class="track-info" id="trackInfo">Press Play to Start</div>
+            <div class="last-updated" id="lastUpdated"></div>
+        </div>
+
+        <div class="controls">
+            <button id="playBtn" onclick="togglePlay()">
+                <span id="playIcon">▶</span>
+                <span id="playText">Play</span>
+            </button>
+        </div>
+
+        <div class="volume-control">
+            <span class="volume-icon">🔊</span>
+            <input type="range" id="volumeSlider" min="0" max="100" value="75" oninput="setVolume(this.value)">
+            <span id="volumeValue">75%</span>
+        </div>
+
+        <div class="vu-meters">
+            <div class="vu-meter-container">
+                <div class="vu-label">L</div>
+                <div class="vu-meter" id="vuMeterLeft">
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-yellow"></div>
+                    <div class="led-bar led-yellow"></div>
+                    <div class="led-bar led-yellow"></div>
+                    <div class="led-bar led-red"></div>
+                    <div class="led-bar led-red"></div>
+                    <div class="led-bar led-red"></div>
+                </div>
+            </div>
+            <div class="vu-meter-container">
+                <div class="vu-label">R</div>
+                <div class="vu-meter" id="vuMeterRight">
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-green"></div>
+                    <div class="led-bar led-yellow"></div>
+                    <div class="led-bar led-yellow"></div>
+                    <div class="led-bar led-yellow"></div>
+                    <div class="led-bar led-red"></div>
+                    <div class="led-bar led-red"></div>
+                    <div class="led-bar led-red"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="quality-info">
+            <div class="quality-row">
+                <span class="quality-label">Current Quality</span>
+                <span class="quality-value" id="currentBitrate">—</span>
+            </div>
+            <div class="quality-row">
+                <span class="quality-label">Network Status</span>
+                <span id="networkStatus" class="quality-badge good">Good</span>
+            </div>
+            <div class="quality-row">
+                <span class="quality-label">Buffer Health</span>
+                <span id="bufferHealth">—</span>
+            </div>
+        </div>
+
+        <div class="quality-selector">
+            <label for="qualityMode">Quality Mode</label>
+            <select id="qualityMode" onchange="changeQualityMode(this.value)">
+                <option value="auto">Auto (Adaptive)</option>
+                <option value="256">High - 256 kbps</option>
+                <option value="64">Medium - 64 kbps</option>
+                <option value="48">Low - 48 kbps</option>
+            </select>
+        </div>
+
+        <div class="status" id="status">Ready to stream</div>
+
+        <div class="tech-info">
+            HLS • AAC • Adaptive Bitrate (256k/64k/48k)<br>
+            <a href="#" onclick="openExternal('https://knkx.org'); return false;" style="color: #667eea; text-decoration: none;">knkx.org</a>
+        </div>
+
+        <div class="playlist-section">
+            <div class="playlist-header">
+                <h3>Play History</h3>
+                <span class="history-count" id="historyCount">0 tracks</span>
+            </div>
+            <div class="playlist-container" id="playlistContainer">
+                <div class="playlist-empty">No tracks played yet. Start playing to see your listening history.</div>
+            </div>
+            <div class="playlist-controls">
+                <button onclick="clearPlaylist()" class="clear-btn">Clear History</button>
+                <button onclick="exportPlaylist()" class="export-btn">Export</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audio"></audio>
+
+    <script src="vendor/hls.min.js"></script>
+    <script src="player.js"></script>
+</body>
+</html>
